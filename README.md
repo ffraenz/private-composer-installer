@@ -1,6 +1,7 @@
 
 # private-composer-installer
 
+[![Packagist](https://img.shields.io/packagist/v/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
 Inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer) this [composer](https://getcomposer.org/) plugin tries to solve the problem of referencing private package URLs within `composer.json` and `composer.lock`. It allows you to outsource sensitive keys from the package dist URL into environment variables or a `.env` file typically ignored by version control.
