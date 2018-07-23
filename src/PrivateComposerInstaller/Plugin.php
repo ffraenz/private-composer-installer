@@ -1,6 +1,6 @@
 <?php
 
-namespace Kniwweler\PrivateComposerInstaller;
+namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Composer;
 use Composer\DependencyResolver\Operation\OperationInterface;
@@ -12,7 +12,7 @@ use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use Dotenv\Dotenv;
-use Kniwweler\PrivateComposerInstaller\Exception\MissingEnvException;
+use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -39,7 +39,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         return [
             PackageEvents::PRE_PACKAGE_INSTALL => 'injectVersion',
             PackageEvents::PRE_PACKAGE_UPDATE => 'injectVersion',
-            PluginEvents::PRE_FILE_DOWNLOAD => 'injectPlaceholders',
+            PluginEvents::PRE_FILE_DOWNLOAD => ['injectPlaceholders', -1],
         ];
     }
 

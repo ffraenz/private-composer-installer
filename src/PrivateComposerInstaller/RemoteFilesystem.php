@@ -1,6 +1,6 @@
 <?php
 
-namespace Kniwweler\PrivateComposerInstaller;
+namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Config;
 use Composer\IO\IOInterface;
@@ -13,7 +13,7 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
 {
     /**
      * The private file url that should be used
-     * instead of the given file url in copy
+     * instead of the given file url in copy.
      * @var string
      */
     protected $privateFileUrl;

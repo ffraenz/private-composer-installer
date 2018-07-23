@@ -11,7 +11,12 @@
     }
   ],
   "keywords": [
-    "wordpress", "wp", "composer", "plugin", "env", "private"
+    "composer",
+    "plugin",
+    "env",
+    "private",
+    "wordpress",
+    "wp"
   ],
   "require": {
     "php": ">=5.5",
@@ -22,9 +27,9 @@
     "composer/composer": "1.0.*"
   },
   "autoload": {
-    "psr-4": { "Kniwweler\\PrivateComposerInstaller\\": "src/PrivateComposerInstaller" }
+    "psr-4": { "FFraenz\\PrivateComposerInstaller\\": "src/PrivateComposerInstaller" }
   },
   "extra": {
-    "class": "Kniwweler\\PrivateComposerInstaller\\Plugin"
+    "class": "FFraenz\\PrivateComposerInstaller\\Plugin"
   }
 }
