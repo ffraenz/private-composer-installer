@@ -19,13 +19,13 @@
     "wp"
   ],
   "require": {
-    "php": ">=5.6",
-    "composer-plugin-api": "^1.0",
+    "php": "^5.6 || ^7.0",
+    "composer-plugin-api": "^1.0.0",
     "vlucas/phpdotenv": "^2.2"
   },
   "require-dev": {
     "composer/composer": "1.0.*",
-    "phpunit/phpunit": "^4.8"
+    "phpunit/phpunit": "5.7.* || ^6.3"
   },
   "scripts": {
     "test": "phpunit --colors=always"
