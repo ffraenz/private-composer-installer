@@ -3,8 +3,9 @@
 namespace FFraenz\PrivateComposerInstaller\Test\Exception;
 
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
+use PHPUnit\Framework\TestCase;
 
-class MissingEnvExceptionTest extends \PHPUnit_Framework_TestCase
+class MissingEnvExceptionTest extends TestCase
 {
     public function testMessage()
     {

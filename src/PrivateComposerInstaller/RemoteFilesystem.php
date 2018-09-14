@@ -42,7 +42,7 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
         $progress = true,
         $options = []
     ) {
-        // use privateFileUrl instead of the provided fileUrl
+        // Use privateFileUrl instead of the provided fileUrl
         return parent::copy(
             $originUrl,
             $this->privateFileUrl,

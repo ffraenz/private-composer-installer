@@ -2,23 +2,24 @@
 
 namespace FFraenz\PrivateComposerInstaller\Test;
 
+use Composer\IO\IOInterface;
 use FFraenz\PrivateComposerInstaller\RemoteFilesystem;
+use PHPUnit\Framework\TestCase;
 
-class RemoteFilesystemTest extends \PHPUnit_Framework_TestCase
+class RemoteFilesystemTest extends TestCase
 {
     protected $io;
 
     protected function setUp()
     {
-        $this->io = $this->getMock('Composer\IO\IOInterface');
+        $this->io = $this->createMock(IOInterface::class);
     }
 
     public function testExtendsComposerRemoteFilesystem()
     {
         $this->assertInstanceOf(
-            'Composer\Util\RemoteFilesystem',
-            new RemoteFilesystem('', $this->io)
-        );
+            \Composer\Util\RemoteFilesystem::class,
+            new RemoteFilesystem('', $this->io));
     }
 
     public function testCopyUsesPrivateFileUrl()

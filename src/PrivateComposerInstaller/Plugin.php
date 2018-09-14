@@ -62,18 +62,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $package = $this->getOperationPackage($event->getOperation());
         $url = $package->getDistUrl();
 
-        // check if package dist url contains any placeholders
+        // Check if package dist url contains any placeholders
         $placeholders = $this->getUrlPlaceholders($url);
         if (count($placeholders) > 0) {
             $version = $package->getPrettyVersion();
 
-            // check if a version placeholder is present
+            // Check if a version placeholder is present
             if (array_search('version', $placeholders) !== false) {
-                // replace existing placeholder
+                // Replace existing placeholder
                 $url = str_replace('{%version}', $version, $url);
             } else {
-                // append version to the location hash to make the url change
-                // when updating the version
+                // Append version to the location hash to make the url change
+                // when updating the version forcing a re-download
                 $url .= '#v' . $version;
             }
 
@@ -90,22 +90,23 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     {
         $url = $event->getProcessedUrl();
 
-        // check if package url contains any placeholders
+        // Check if package url contains any placeholders
         $placeholders = $this->getUrlPlaceholders($url);
         if (count($placeholders) > 0) {
-            // replace each placeholder with env var
+            // Replace each placeholder with env var
             foreach ($placeholders as $placeholder) {
                 $value = $this->getEnv($placeholder);
                 $url = str_replace('{%' . $placeholder . '}', $value, $url);
             }
 
-            // download file from different location
+            // Download file from different location
+            $originalRemoteFilesystem = $event->getRemoteFilesystem();
             $event->setRemoteFilesystem(new RemoteFilesystem(
                 $url,
                 $this->io,
                 $this->composer->getConfig(),
-                $event->getRemoteFilesystem()->getOptions(),
-                $event->getRemoteFilesystem()->isTlsDisabled()
+                $originalRemoteFilesystem->getOptions(),
+                $originalRemoteFilesystem->isTlsDisabled()
             ));
         }
     }
@@ -130,18 +131,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     protected function getEnv($key)
     {
-        // lazily initialize environment
+        // Lazily initialize environment
         if (!$this->envInitialized) {
             $this->envInitialized = true;
 
-            // load dot env file if it exists
+            // Load dot env file if it exists
             if (file_exists(getcwd() . DIRECTORY_SEPARATOR . '.env')) {
                 $dotenv = new Dotenv(getcwd());
                 $dotenv->load();
             }
         }
 
-        // retrieve env var
+        // Retrieve env var
         $value = getenv($key);
         if (empty($value)) {
             throw new MissingEnvException($key);
