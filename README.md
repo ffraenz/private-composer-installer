@@ -2,12 +2,19 @@
 # private-composer-installer
 
 [![Packagist version](https://img.shields.io/packagist/v/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
-[![Packagist downloads](https://img.shields.io/packagist/dt/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Build Status](https://travis-ci.org/ffraenz/private-composer-installer.svg?branch=master)](https://travis-ci.org/ffraenz/private-composer-installer)
+[![Packagist downloads](https://img.shields.io/packagist/dt/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 
-Inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer) this [composer](https://getcomposer.org/) plugin tries to solve the problem of referencing private package URLs within `composer.json` and `composer.lock` in a universally applicable way. It allows you to outsource sensitive data from the package dist URL into environment variables or a `.env` file typically ignored by version control.
+This [composer](https://getcomposer.org/) plugin allows you to outsource sensitive data from the package dist URL into environment variables or a `.env` file typically ignored by version control. It tries to solve the problem of referencing private package URLs within `composer.json` and `composer.lock` in a universally applicable way. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer) offering a solution specifically for the ACF Pro WordPress plugin.
 
-Once activated, this helper scans the package dist URL for `{%XYZ}` placeholders. It then replaces them with corresponding environment variables before downloading. In addition a `{%version}` placeholder is being made available to inject the package version into the URL.
+## Quick overview
+
+- When installing or updating a package, the dist URL `{%version}` placeholder gets replaced by the version set in the package. When the placeholder is not present, a version hash is added to the end of the dist URL to force the re-download. The versioned dist URL is added to the `composer.lock`.
+- Just before downloading the package, `{%XYZ}` formatted placeholders get replaced by their corresponding env variables in the dist URL. Env vars will never be stored in the `composer.lock` file.
+- Package dist URLs with no `{%XYZ}` formatted placeholders get ignored by this plugin.
+- When an environment variable required by a placeholder is not set, the `.env` file gets loaded.
+- When a placeholder cannot be fullfilled, a `MissingEnvException` gets thrown.
 
 ## Examples
 
@@ -50,7 +57,7 @@ Add following entry to the `repositories` field inside `composer.json` and set t
   "type": "package",
   "package": {
     "name": "advanced-custom-fields/advanced-custom-fields-pro",
-    "version": "5.6.8",
+    "version": "1.2.3",
     "type": "wordpress-plugin",
     "dist": {
       "type": "zip",

@@ -131,22 +131,28 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     protected function getEnv($key)
     {
-        // Lazily initialize environment
-        if (!$this->envInitialized) {
+        // Retrieve env var
+        $value = getenv($key);
+
+        // Lazily initialize environment if env var is not set
+        if (empty($value) && !$this->envInitialized) {
             $this->envInitialized = true;
 
             // Load dot env file if it exists
             if (file_exists(getcwd() . DIRECTORY_SEPARATOR . '.env')) {
                 $dotenv = new Dotenv(getcwd());
                 $dotenv->load();
+
+                // Retrieve env var from dot env file
+                $value = getenv($key);
             }
         }
 
-        // Retrieve env var
-        $value = getenv($key);
+        // Check if env var is set
         if (empty($value)) {
             throw new MissingEnvException($key);
         }
+
         return $value;
     }
 
