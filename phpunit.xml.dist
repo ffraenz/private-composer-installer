@@ -2,7 +2,7 @@
 <phpunit bootstrap="vendor/autoload.php">
   <testsuites>
     <testsuite name="Private Composer Installer Test Suite">
-      <directory>tests</directory>
+      <directory>test</directory>
     </testsuite>
   </testsuites>
   <filter>

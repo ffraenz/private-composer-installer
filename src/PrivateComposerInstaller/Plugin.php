@@ -135,7 +135,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $value = getenv($key);
 
         // Lazily initialize environment if env var is not set
-        if (empty($value) && !$this->envInitialized) {
+        if (empty($value) && ! $this->envInitialized) {
             $this->envInitialized = true;
 
             // Load dot env file if it exists

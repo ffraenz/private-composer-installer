@@ -19,7 +19,8 @@ class RemoteFilesystemTest extends TestCase
     {
         $this->assertInstanceOf(
             \Composer\Util\RemoteFilesystem::class,
-            new RemoteFilesystem('', $this->io));
+            new RemoteFilesystem('', $this->io)
+        );
     }
 
     public function testCopyUsesPrivateFileUrl()
@@ -31,7 +32,10 @@ class RemoteFilesystemTest extends TestCase
 
         $file = tempnam(sys_get_temp_dir(), 'ff');
         $this->assertTrue($filesystem->copy(
-            'http://example.org', $privateFileUrl, $file));
+            'http://example.org',
+            $privateFileUrl,
+            $file
+        ));
         $this->assertFileExists($file);
         $this->assertContains('testCopy', file_get_contents($file));
         unlink($file);

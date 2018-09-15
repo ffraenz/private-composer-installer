@@ -6,12 +6,12 @@
 [![Build Status](https://travis-ci.org/ffraenz/private-composer-installer.svg?branch=master)](https://travis-ci.org/ffraenz/private-composer-installer)
 [![Packagist downloads](https://img.shields.io/packagist/dt/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 
-This [composer](https://getcomposer.org/) plugin allows you to outsource sensitive data from the package dist URL into environment variables or a `.env` file typically ignored by version control. It tries to solve the problem of referencing private package URLs within `composer.json` and `composer.lock` in a universally applicable way. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer) offering a solution specifically for the ACF Pro WordPress plugin.
+[Composer](https://getcomposer.org/) plugin trying to solve the problem of referencing private package URLs within `composer.json` and `composer.lock`. It outsources sensitive dist URL parts (license keys, tokens) into environment variables or a `.env` file typically ignored by version control. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer).
 
 ## Quick overview
 
-- When installing or updating a package, the dist URL `{%version}` placeholder gets replaced by the version set in the package. When the placeholder is not present, a version hash is added to the end of the dist URL to force the re-download. The versioned dist URL is added to the `composer.lock`.
-- Just before downloading the package, `{%XYZ}` formatted placeholders get replaced by their corresponding env variables in the dist URL. Env vars will never be stored in the `composer.lock` file.
+- When installing or updating a package, the dist URL `{%version}` placeholder gets replaced by the version set in the package. When the placeholder is not present, a version hash is added to the end of the dist URL to force the re-download. The versioned dist URL is added to `composer.lock`.
+- Just before downloading the package, `{%XYZ}` formatted placeholders get replaced by their corresponding env variables in the dist URL. Env vars will never be stored inside `composer.lock`.
 - Package dist URLs with no `{%XYZ}` formatted placeholders get ignored by this plugin.
 - When an environment variable required by a placeholder is not set, the `.env` file gets loaded.
 - When a placeholder cannot be fullfilled, a `MissingEnvException` gets thrown.

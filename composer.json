@@ -25,10 +25,18 @@
   },
   "require-dev": {
     "composer/composer": "1.0.*",
-    "phpunit/phpunit": "5.7.* || ^6.3"
+    "phpunit/phpunit": "5.7.* || ^6.3",
+    "zendframework/zend-coding-standard": "^1.0"
   },
   "scripts": {
-    "test": "phpunit --colors=always"
+    "check": [
+      "@cs-check",
+      "@test"
+    ],
+    "cs-check": "phpcs",
+    "cs-fix": "phpcbf",
+    "test": "phpunit --colors=always",
+    "test-coverage": "phpunit --colors=always --coverage-clover clover.xml"
   },
   "autoload": {
     "psr-4": {

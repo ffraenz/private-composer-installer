@@ -491,8 +491,7 @@ class PluginTest extends TestCase
             ->expects($this->once())
             ->method('setRemoteFilesystem')
             ->with($this->callback(
-                function ($rfs)
-                use ($config, $io, $options, $tlsDisabled) {
+                function ($rfs) use ($config, $io, $options, $tlsDisabled) {
                     $this->assertAttributeEquals($config, 'config', $rfs);
                     $this->assertAttributeEquals($io, 'io', $rfs);
                     $this->assertEquals($options, $rfs->getOptions());
@@ -572,7 +571,8 @@ class PluginTest extends TestCase
                     $this->assertAttributeEquals(
                         $expectedUrl,
                         'privateFileUrl',
-                        $rfs);
+                        $rfs
+                    );
                     return true;
                 }
             ));
@@ -591,7 +591,8 @@ class PluginTest extends TestCase
         // Test placeholder injection
         $this->expectFileDownload(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
-            'https://example.com/r/1.2.3/d?key=TEST');
+            'https://example.com/r/1.2.3/d?key=TEST'
+        );
     }
 
     public function testInjectsSinglePlaceholderMultipleTimes()
@@ -602,7 +603,8 @@ class PluginTest extends TestCase
         // Test placeholder injection
         $this->expectFileDownload(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&confirm={%KEY_FOO}',
-            'https://example.com/r/1.2.3/d?key=TEST&confirm=TEST');
+            'https://example.com/r/1.2.3/d?key=TEST&confirm=TEST'
+        );
     }
 
     public function testInjectsMultiplePlaceholdersFromEnv()
@@ -614,7 +616,8 @@ class PluginTest extends TestCase
         // Test placeholder injection
         $this->expectFileDownload(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
-            'https://example.com/r/1.2.3/d?key=Hello&secret=World');
+            'https://example.com/r/1.2.3/d?key=Hello&secret=World'
+        );
     }
 
     public function testInjectsMultiplePlaceholdersFromDotEnvFile()
@@ -622,12 +625,14 @@ class PluginTest extends TestCase
         // Make env variables available through dot env file
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
-            'KEY_FOO=Hello' . PHP_EOL . 'KEY_BAR=World' . PHP_EOL);
+            'KEY_FOO=Hello' . PHP_EOL . 'KEY_BAR=World' . PHP_EOL
+        );
 
         // Test placeholder injection
         $this->expectFileDownload(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
-            'https://example.com/r/1.2.3/d?key=Hello&secret=World');
+            'https://example.com/r/1.2.3/d?key=Hello&secret=World'
+        );
     }
 
     public function testPrefersVariableFromEnv()
@@ -638,12 +643,14 @@ class PluginTest extends TestCase
         // Make diffrent env variable available through dot env file
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
-            'KEY_FOO=NAY' . PHP_EOL);
+            'KEY_FOO=NAY' . PHP_EOL
+        );
 
         // Expect the env variable to be used over the dot env file
         $this->expectFileDownload(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
-            'https://example.com/r/1.2.3/d?key=YAY');
+            'https://example.com/r/1.2.3/d?key=YAY'
+        );
     }
 
     public function testThrowsExceptionWhenEnvVariableIsMissing()
@@ -652,7 +659,8 @@ class PluginTest extends TestCase
         $this->expectException(MissingEnvException::class);
         $this->expectExceptionMessage(
             'Can\'t resolve placeholder {%KEY_FOO}. ' .
-            'Environment variable \'KEY_FOO\' is not set.');
+            'Environment variable \'KEY_FOO\' is not set.'
+        );
 
         // Mock a RemoteFilesystem
         $rfs = $this

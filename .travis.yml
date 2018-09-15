@@ -1,19 +1,36 @@
-language: php
 sudo: false
 
-cache: vendor
+language: php
 
-php:
-  - '5.6'
-  - '7.0'
-  - '7.1'
-  - '7.2'
+cache:
+  directories:
+    - $HOME/.composer/cache
+
+env:
+  global:
+    - COMPOSER_ARGS="--no-interaction"
+    - COVERAGE_DEPS="php-coveralls/php-coveralls"
 
 matrix:
-  fast_finish: true
+  include:
+    - php: 5.6
+    - php: 7.0
+    - php: 7.1
+      env:
+        - CS_CHECK=true
+        - TEST_COVERAGE=true
+    - php: 7.2
 
 install:
-  - composer install --no-progress --profile
+  - travis_retry composer install $COMPOSER_ARGS
+  - if [[ $TEST_COVERAGE == 'true' ]]; then travis_retry composer require --dev $COMPOSER_ARGS $COVERAGE_DEPS ; fi
 
 script:
-  - composer test
+  - if [[ $TEST_COVERAGE == 'true' ]]; then composer test-coverage ; else composer test ; fi
+  - if [[ $CS_CHECK == 'true' ]]; then composer cs-check ; fi
+
+after_script:
+  - if [[ $TEST_COVERAGE == 'true' ]]; then vendor/bin/php-coveralls -v ; fi
+
+notifications:
+  email: false
