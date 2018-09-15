@@ -4,6 +4,7 @@
 [![Packagist version](https://img.shields.io/packagist/v/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![Build Status](https://travis-ci.org/ffraenz/private-composer-installer.svg?branch=master)](https://travis-ci.org/ffraenz/private-composer-installer)
+[![Coverage Status](https://coveralls.io/repos/github/ffraenz/private-composer-installer/badge.svg?branch=master)](https://coveralls.io/github/ffraenz/private-composer-installer?branch=master)
 [![Packagist downloads](https://img.shields.io/packagist/dt/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 
 [Composer](https://getcomposer.org/) plugin trying to solve the problem of referencing private package URLs within `composer.json` and `composer.lock`. It outsources sensitive dist URL parts (license keys, tokens) into environment variables or a `.env` file typically ignored by version control. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer).
