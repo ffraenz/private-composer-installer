@@ -32,6 +32,10 @@ Add the desired private package to the `repositories` field inside `composer.jso
     "dist": {
       "type": "zip",
       "url": "{%PACKAGE_NAME_URL}"
+    },
+    "require": {
+      "composer/installers": "^1.4",
+      "ffraenz/private-composer-installer": "^1.0"
     }
   }
 }
