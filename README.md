@@ -16,6 +16,7 @@
 - Package dist URLs with no `{%XYZ}` formatted placeholders get ignored by this plugin.
 - When an environment variable required by a placeholder is not set, the `.env` file gets loaded.
 - When a placeholder cannot be fullfilled, a `MissingEnvException` gets thrown.
+- This installer is not WordPress specific. WordPress plugins can be installed using the package type `wordpress-plugin` in conjunction with the `composer/installers` installer.
 
 ## Examples
 
@@ -34,7 +35,6 @@ Add the desired private package to the `repositories` field inside `composer.jso
       "url": "{%PACKAGE_NAME_URL}"
     },
     "require": {
-      "composer/installers": "^1.4",
       "ffraenz/private-composer-installer": "^1.0"
     }
   }
