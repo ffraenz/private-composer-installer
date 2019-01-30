@@ -14,7 +14,7 @@
 - When installing or updating a package, the dist URL `{%version}` placeholder gets replaced by the version set in the package. When the placeholder is not present, a version hash is added to the end of the dist URL to force the re-download. The versioned dist URL is added to `composer.lock`.
 - Just before downloading the package, `{%XYZ}` formatted placeholders get replaced by their corresponding env variables in the dist URL. Env vars will never be stored inside `composer.lock`.
 - Package dist URLs with no `{%XYZ}` formatted placeholders get ignored by this plugin.
-- When an environment variable required by a placeholder is not set, the `.env` file gets loaded.
+- When an environment variable required by a placeholder is not set, the `.env` file gets loaded using the [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv) package.
 - When a placeholder cannot be fullfilled, a `MissingEnvException` gets thrown.
 - This installer is not WordPress specific. WordPress plugins can be installed using the package type `wordpress-plugin` in conjunction with the `composer/installers` installer.
 
@@ -35,7 +35,7 @@ Add the desired private package to the `repositories` field inside `composer.jso
       "url": "{%PACKAGE_NAME_URL}"
     },
     "require": {
-      "ffraenz/private-composer-installer": "^1.0"
+      "ffraenz/private-composer-installer": "^2.0"
     }
   }
 }
@@ -70,7 +70,7 @@ Add following entry to the `repositories` field inside `composer.json` and set t
     },
     "require": {
       "composer/installers": "^1.4",
-      "ffraenz/private-composer-installer": "^1.0"
+      "ffraenz/private-composer-installer": "^2.0"
     }
   }
 }
@@ -105,7 +105,7 @@ Add following entry to the `repositories` field inside `composer.json` and set t
     },
     "require": {
       "composer/installers": "^1.4",
-      "ffraenz/private-composer-installer": "^1.0"
+      "ffraenz/private-composer-installer": "^2.0"
     }
   }
 }
