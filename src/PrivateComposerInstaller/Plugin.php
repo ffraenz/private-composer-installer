@@ -140,7 +140,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
             // Load dot env file if it exists
             if (file_exists(getcwd() . DIRECTORY_SEPARATOR . '.env')) {
-                $dotenv = new Dotenv(getcwd());
+                $dotenv = Dotenv::create(getcwd());
                 $dotenv->load();
 
                 // Retrieve env var from dot env file
