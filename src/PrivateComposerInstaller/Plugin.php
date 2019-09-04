@@ -129,7 +129,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param string $key
      * @return mixed
      */
-    protected function getEnv($key)
+    protected function getEnv(string $key)
     {
         // Retrieve env var
         $value = getenv($key);
@@ -161,7 +161,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param string $url
      * @return string[]
      */
-    protected function getUrlPlaceholders($url)
+    protected function getUrlPlaceholders(string $url): array
     {
         $matches = [];
         preg_match_all('/{%([A-Za-z0-9-_]+)}/', $url, $matches);
@@ -171,5 +171,23 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             array_push($placeholders, $match);
         }
         return array_unique($placeholders);
+    }
+
+    /**
+     * Returns the composer instance.
+     * @return Composer
+     */
+    public function getComposer(): Composer
+    {
+        return $this->composer;
+    }
+
+    /**
+     * Returns the IO interface object.
+     * @return IOInterface
+     */
+    public function getIO(): IOInterface
+    {
+        return $this->io;
     }
 }

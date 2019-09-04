@@ -51,4 +51,13 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
             $options
         );
     }
+
+    /**
+     * Returns the private file URL.
+     * @return string
+     */
+    public function getPrivateFileUrl(): string
+    {
+        return $this->privateFileUrl;
+    }
 }

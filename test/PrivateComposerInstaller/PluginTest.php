@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 
 class PluginTest extends TestCase
 {
-    protected function tearDown()
+    protected function tearDown(): void
     {
         // Unset environment variables
         putenv('KEY_FOO');
@@ -49,8 +49,8 @@ class PluginTest extends TestCase
         $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
-        $this->assertAttributeEquals($composer, 'composer', $plugin);
-        $this->assertAttributeEquals($io, 'io', $plugin);
+        $this->assertEquals($composer, $plugin->getComposer());
+        $this->assertEquals($io, $plugin->getIO());
     }
 
     public function testSubscribesToPrePackageInstallEvent()
@@ -492,8 +492,6 @@ class PluginTest extends TestCase
             ->method('setRemoteFilesystem')
             ->with($this->callback(
                 function ($rfs) use ($config, $io, $options, $tlsDisabled) {
-                    $this->assertAttributeEquals($config, 'config', $rfs);
-                    $this->assertAttributeEquals($io, 'io', $rfs);
                     $this->assertEquals($options, $rfs->getOptions());
                     $this->assertEquals($tlsDisabled, $rfs->isTlsDisabled());
                     return true;
@@ -568,10 +566,9 @@ class PluginTest extends TestCase
             ->method('setRemoteFilesystem')
             ->with($this->callback(
                 function ($rfs) use ($expectedUrl) {
-                    $this->assertAttributeEquals(
+                    $this->assertEquals(
                         $expectedUrl,
-                        'privateFileUrl',
-                        $rfs
+                        $rfs->getPrivateFileUrl()
                     );
                     return true;
                 }
