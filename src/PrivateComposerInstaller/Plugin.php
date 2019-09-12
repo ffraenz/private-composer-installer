@@ -70,9 +70,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
             if (array_search('version', $placeholders) !== false) {
                 // If there is a version placeholder in the URL, fulfill it
-                $package->setDistUrl(preg_replace(
-                    '/{%version}/i', $version, $url));
-            } else if (strpos($url, $version) === false) {
+                $package->setDistUrl(preg_replace('/{%version}/i', $version, $url));
+            } elseif (strpos($url, $version) === false) {
                 // If the exact version is not already part of the URL, append
                 // it as a hash to the end of the URL to force a re-download
                 // when updating the version
