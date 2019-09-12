@@ -8,6 +8,7 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
+use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
@@ -57,7 +58,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param PackageEvent $event
      * @return void
      */
-    public function injectVersion(PackageEvent $event)
+    public function injectVersion(PackageEvent $event): void
     {
         $package = $this->getOperationPackage($event->getOperation());
         $url = $package->getDistUrl();
@@ -67,17 +68,16 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (count($placeholders) > 0) {
             $version = $package->getPrettyVersion();
 
-            // Check if a version placeholder is present
             if (array_search('version', $placeholders) !== false) {
-                // Replace existing placeholder
-                $url = str_replace('{%version}', $version, $url);
-            } else {
-                // Append version to the location hash to make the url change
-                // when updating the version forcing a re-download
-                $url .= '#v' . $version;
+                // If there is a version placeholder in the URL, fulfill it
+                $package->setDistUrl(preg_replace(
+                    '/{%version}/i', $version, $url));
+            } else if (strpos($url, $version) === false) {
+                // If the exact version is not already part of the URL, append
+                // it as a hash to the end of the URL to force a re-download
+                // when updating the version
+                $package->setDistUrl($url . '#v' . $version);
             }
-
-            $package->setDistUrl($url);
         }
     }
 
@@ -86,7 +86,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param PreFileDownloadEvent $event
      * @return void
      */
-    public function injectPlaceholders(PreFileDownloadEvent $event)
+    public function injectPlaceholders(PreFileDownloadEvent $event): void
     {
         $url = $event->getProcessedUrl();
 
@@ -116,8 +116,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param OperationInterface $operation
      * @return PackageInterface
      */
-    protected function getOperationPackage(OperationInterface $operation)
-    {
+    protected function getOperationPackage(
+        OperationInterface $operation
+    ): PackageInterface {
         if ($operation->getJobType() === 'update') {
             return $operation->getTargetPackage();
         }
@@ -168,8 +169,13 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         $placeholders = [];
         foreach ($matches[1] as $match) {
-            array_push($placeholders, $match);
+            // The 'version' placeholder is case-insensitive
+            $placeholders[] =
+                strtolower($match) !== 'version'
+                    ? $match
+                    : 'version';
         }
+
         return array_unique($placeholders);
     }
 

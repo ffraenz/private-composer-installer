@@ -96,7 +96,7 @@ class PluginTest extends TestCase
             ->getMockForAbstractClass();
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('getDistUrl')
             ->willReturn('https://example.com/download');
 
@@ -108,41 +108,16 @@ class PluginTest extends TestCase
             ->expects($this->never())
             ->method('setDistUrl');
 
-        // Mock an operation
-        $operation = $this
-            ->getMockBuilder(InstallOperation::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getJobType', 'getPackage'])
-            ->getMock();
-
-        $operation
-            ->expects($this->once())
-            ->method('getJobType')
-            ->willReturn('install');
-
-        $operation
-            ->expects($this->once())
-            ->method('getPackage')
-            ->willReturn($package);
-
-        // Mock a package event
-        $packageEvent = $this
-            ->getMockBuilder(PackageEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOperation'])
-            ->getMock();
-
-        $packageEvent
-            ->expects($this->once())
-            ->method('getOperation')
-            ->willReturn($operation);
-
-        // Trigger install event handler
+        // Test package install event
         $plugin = new Plugin();
-        $plugin->injectVersion($packageEvent);
+        $plugin->injectVersion($this->mockInstallEvent($package, 'install'));
+
+        // Test package update event
+        $plugin = new Plugin();
+        $plugin->injectVersion($this->mockInstallEvent($package, 'update'));
     }
 
-    public function testInjectVersionOnInstall()
+    public function testSkipVersionInjectionIfAlreadyPresent()
     {
         // Make an env variable available
         putenv('KEY_FOO=TEST');
@@ -154,55 +129,64 @@ class PluginTest extends TestCase
             ->getMockForAbstractClass();
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('getPrettyVersion')
             ->willReturn('1.2.3');
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
+            ->method('getDistUrl')
+            ->willReturn('https://example.com/r/1.2.3/d?key={%KEY_FOO}');
+
+        $package
+            ->expects($this->never())
+            ->method('setDistUrl');
+
+        // Test package install event
+        $plugin = new Plugin();
+        $plugin->injectVersion($this->mockInstallEvent($package, 'install'));
+
+        // Test package update event
+        $plugin = new Plugin();
+        $plugin->injectVersion($this->mockInstallEvent($package, 'update'));
+    }
+
+    public function testInjectVersion()
+    {
+        // Make an env variable available
+        putenv('KEY_FOO=TEST');
+
+        // Mock a package
+        $package = $this
+            ->getMockBuilder(PackageInterface::class)
+            ->setMethods(['getDistUrl', 'getPrettyVersion', 'setDistUrl'])
+            ->getMockForAbstractClass();
+
+        $package
+            ->expects($this->exactly(2))
+            ->method('getPrettyVersion')
+            ->willReturn('1.2.3');
+
+        $package
+            ->expects($this->exactly(2))
             ->method('getDistUrl')
             ->willReturn('https://example.com/d?key={%KEY_FOO}');
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('setDistUrl')
             ->with('https://example.com/d?key={%KEY_FOO}#v1.2.3');
 
-        // Mock an operation
-        $operation = $this
-            ->getMockBuilder(InstallOperation::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getJobType', 'getPackage'])
-            ->getMock();
-
-        $operation
-            ->expects($this->once())
-            ->method('getJobType')
-            ->willReturn('install');
-
-        $operation
-            ->expects($this->once())
-            ->method('getPackage')
-            ->willReturn($package);
-
-        // Mock a package event
-        $packageEvent = $this
-            ->getMockBuilder(PackageEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOperation'])
-            ->getMock();
-
-        $packageEvent
-            ->expects($this->once())
-            ->method('getOperation')
-            ->willReturn($operation);
-
-        // Trigger install event handler
+        // Test package install event
         $plugin = new Plugin();
-        $plugin->injectVersion($packageEvent);
+        $plugin->injectVersion($this->mockInstallEvent($package, 'install'));
+
+        // Test package update event
+        $plugin = new Plugin();
+        $plugin->injectVersion($this->mockInstallEvent($package, 'update'));
     }
 
-    public function testReplaceVersionPlaceholderOnInstall()
+    public function testFulfillVersionPlaceholder()
     {
         // Make an env variable available
         putenv('KEY_FOO=TEST');
@@ -214,172 +198,27 @@ class PluginTest extends TestCase
             ->getMockForAbstractClass();
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('getPrettyVersion')
             ->willReturn('1.2.3');
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('getDistUrl')
             ->willReturn('https://example.com/r/{%version}/d?key={%KEY_FOO}');
 
         $package
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('setDistUrl')
             ->with('https://example.com/r/1.2.3/d?key={%KEY_FOO}');
 
-        // Mock an operation
-        $operation = $this
-            ->getMockBuilder(InstallOperation::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getJobType', 'getPackage'])
-            ->getMock();
-
-        $operation
-            ->expects($this->once())
-            ->method('getJobType')
-            ->willReturn('install');
-
-        $operation
-            ->expects($this->once())
-            ->method('getPackage')
-            ->willReturn($package);
-
-        // Mock a package event
-        $packageEvent = $this
-            ->getMockBuilder(PackageEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOperation'])
-            ->getMock();
-
-        $packageEvent
-            ->expects($this->once())
-            ->method('getOperation')
-            ->willReturn($operation);
-
-        // Trigger install event handler
+        // Test package install event
         $plugin = new Plugin();
-        $plugin->injectVersion($packageEvent);
-    }
+        $plugin->injectVersion($this->mockInstallEvent($package, 'install'));
 
-    public function testInjectVersionOnUpdate()
-    {
-        // Make an env variable available
-        putenv('KEY_FOO=TEST');
-
-        // Mock a package
-        $package = $this
-            ->getMockBuilder(PackageInterface::class)
-            ->setMethods(['getDistUrl', 'getPrettyVersion', 'setDistUrl'])
-            ->getMockForAbstractClass();
-
-        $package
-            ->expects($this->once())
-            ->method('getPrettyVersion')
-            ->willReturn('1.2.3');
-
-        $package
-            ->expects($this->once())
-            ->method('getDistUrl')
-            ->willReturn('https://example.com/d?key={%KEY_FOO}');
-
-        $package
-            ->expects($this->once())
-            ->method('setDistUrl')
-            ->with('https://example.com/d?key={%KEY_FOO}#v1.2.3');
-
-        // Mock an operation
-        $operation = $this
-            ->getMockBuilder(InstallOperation::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getJobType', 'getTargetPackage'])
-            ->getMock();
-
-        $operation
-            ->expects($this->once())
-            ->method('getJobType')
-            ->willReturn('update');
-
-        $operation
-            ->expects($this->once())
-            ->method('getTargetPackage')
-            ->willReturn($package);
-
-        // Mock a package event
-        $packageEvent = $this
-            ->getMockBuilder(PackageEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOperation'])
-            ->getMock();
-
-        $packageEvent
-            ->expects($this->once())
-            ->method('getOperation')
-            ->willReturn($operation);
-
-        // Trigger install event handler
+        // Test package update event
         $plugin = new Plugin();
-        $plugin->injectVersion($packageEvent);
-    }
-
-    public function testReplaceVersionPlaceholderOnUpdate()
-    {
-        // Make an env variable available
-        putenv('KEY_FOO=TEST');
-
-        // Mock a package
-        $package = $this
-            ->getMockBuilder(PackageInterface::class)
-            ->setMethods(['getDistUrl', 'getPrettyVersion', 'setDistUrl'])
-            ->getMockForAbstractClass();
-
-        $package
-            ->expects($this->once())
-            ->method('getPrettyVersion')
-            ->willReturn('1.2.3');
-
-        $package
-            ->expects($this->once())
-            ->method('getDistUrl')
-            ->willReturn('https://example.com/r/{%version}/d?key={%KEY_FOO}');
-
-        $package
-            ->expects($this->once())
-            ->method('setDistUrl')
-            ->with('https://example.com/r/1.2.3/d?key={%KEY_FOO}');
-
-        // Mock an operation
-        $operation = $this
-            ->getMockBuilder(InstallOperation::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getJobType', 'getTargetPackage'])
-            ->getMock();
-
-        $operation
-            ->expects($this->once())
-            ->method('getJobType')
-            ->willReturn('update');
-
-        $operation
-            ->expects($this->once())
-            ->method('getTargetPackage')
-            ->willReturn($package);
-
-        // Mock a package event
-        $packageEvent = $this
-            ->getMockBuilder(PackageEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOperation'])
-            ->getMock();
-
-        $packageEvent
-            ->expects($this->once())
-            ->method('getOperation')
-            ->willReturn($operation);
-
-        // Trigger install event handler
-        $plugin = new Plugin();
-        $plugin->injectVersion($packageEvent);
+        $plugin->injectVersion($this->mockInstallEvent($package, 'update'));
     }
 
     public function testIgnoresProcessedUrlWithoutPlaceholders()
@@ -504,82 +343,6 @@ class PluginTest extends TestCase
         $plugin->injectPlaceholders($event);
     }
 
-    protected function expectFileDownload($processedUrl, $expectedUrl)
-    {
-        // Mock RemoteFilesystem instance
-        $options = ['options' => 'array'];
-        $tlsDisabled = true;
-        $rfs = $this
-            ->getMockBuilder(RemoteFilesystem::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOptions', 'isTlsDisabled'])
-            ->getMock();
-
-        $rfs
-            ->method('getOptions')
-            ->willReturn($options);
-
-        $rfs
-            ->method('isTlsDisabled')
-            ->willReturn($tlsDisabled);
-
-        // Mock Config instance
-        $config = $this
-            ->getMockBuilder(Config::class)
-            ->getMock();
-
-        // Mock Composer instance
-        $composer = $this
-            ->getMockBuilder(Composer::class)
-            ->setMethods(['getConfig'])
-            ->getMock();
-
-        $composer
-            ->method('getConfig')
-            ->willReturn($config);
-
-        // Mock IOInterface instance
-        $io = $this
-            ->getMockBuilder(IOInterface::class)
-            ->getMock();
-
-        // Mock an Event
-        $event = $this
-            ->getMockBuilder(PreFileDownloadEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods([
-                'getProcessedUrl',
-                'getRemoteFilesystem',
-                'setRemoteFilesystem',
-            ])
-            ->getMock();
-
-        $event
-            ->method('getProcessedUrl')
-            ->willReturn($processedUrl);
-
-        $event
-            ->method('getRemoteFilesystem')
-            ->willReturn($rfs);
-
-        $event
-            ->method('setRemoteFilesystem')
-            ->with($this->callback(
-                function ($rfs) use ($expectedUrl) {
-                    $this->assertEquals(
-                        $expectedUrl,
-                        $rfs->getPrivateFileUrl()
-                    );
-                    return true;
-                }
-            ));
-
-        // Trigger placeholder injection
-        $plugin = new Plugin();
-        $plugin->activate($composer, $io);
-        $plugin->injectPlaceholders($event);
-    }
-
     public function testInjectsSinglePlaceholderFromEnv()
     {
         // Make an env variable available
@@ -684,6 +447,121 @@ class PluginTest extends TestCase
 
         // Test placeholder injection
         $plugin = new Plugin();
+        $plugin->injectPlaceholders($event);
+    }
+
+    protected function mockInstallEvent(
+        PackageInterface $package,
+        string $jobType
+    ): PackageEvent {
+        // Mock an operation
+        $operation = $this
+            ->getMockBuilder(InstallOperation::class)
+            ->disableOriginalConstructor()
+            ->setMethods([
+                'getJobType',
+                $jobType === 'update' ? 'getTargetPackage' : 'getPackage',
+            ])
+            ->getMock();
+
+        $operation
+            ->expects($this->once())
+            ->method('getJobType')
+            ->willReturn($jobType);
+
+        $operation
+            ->expects($this->once())
+            ->method($jobType === 'update' ? 'getTargetPackage' : 'getPackage')
+            ->willReturn($package);
+
+        // Mock a package event
+        $packageEvent = $this
+            ->getMockBuilder(PackageEvent::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getOperation'])
+            ->getMock();
+
+        $packageEvent
+            ->expects($this->once())
+            ->method('getOperation')
+            ->willReturn($operation);
+
+        return $packageEvent;
+    }
+
+    protected function expectFileDownload($processedUrl, $expectedUrl)
+    {
+        // Mock RemoteFilesystem instance
+        $options = ['options' => 'array'];
+        $tlsDisabled = true;
+        $rfs = $this
+            ->getMockBuilder(RemoteFilesystem::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getOptions', 'isTlsDisabled'])
+            ->getMock();
+
+        $rfs
+            ->method('getOptions')
+            ->willReturn($options);
+
+        $rfs
+            ->method('isTlsDisabled')
+            ->willReturn($tlsDisabled);
+
+        // Mock Config instance
+        $config = $this
+            ->getMockBuilder(Config::class)
+            ->getMock();
+
+        // Mock Composer instance
+        $composer = $this
+            ->getMockBuilder(Composer::class)
+            ->setMethods(['getConfig'])
+            ->getMock();
+
+        $composer
+            ->method('getConfig')
+            ->willReturn($config);
+
+        // Mock IOInterface instance
+        $io = $this
+            ->getMockBuilder(IOInterface::class)
+            ->getMock();
+
+        // Mock an Event
+        $event = $this
+            ->getMockBuilder(PreFileDownloadEvent::class)
+            ->disableOriginalConstructor()
+            ->setMethods([
+                'getProcessedUrl',
+                'getRemoteFilesystem',
+                'setRemoteFilesystem',
+            ])
+            ->getMock();
+
+        $event
+            ->method('getProcessedUrl')
+            ->willReturn($processedUrl);
+
+        $event
+            ->method('getRemoteFilesystem')
+            ->willReturn($rfs);
+
+        $event
+            ->method('setRemoteFilesystem')
+            ->with($this->callback(
+                function ($rfs) use ($expectedUrl) {
+                    $this->assertEquals(
+                        $expectedUrl,
+                        $rfs->getPrivateFileUrl()
+                    );
+                    return true;
+                }
+            ));
+
+        // Trigger placeholder injection
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
         $plugin->injectPlaceholders($event);
     }
 }
