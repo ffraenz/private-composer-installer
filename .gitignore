@@ -1,3 +1,5 @@
+*.cache
+.DS_Store
 /clover.xml
 /composer.lock
 /coveralls-upload.json

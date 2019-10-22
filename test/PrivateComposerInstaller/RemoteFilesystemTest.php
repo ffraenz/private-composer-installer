@@ -10,7 +10,7 @@ class RemoteFilesystemTest extends TestCase
 {
     protected $io;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->io = $this->createMock(IOInterface::class);
     }
@@ -37,7 +37,7 @@ class RemoteFilesystemTest extends TestCase
             $file
         ));
         $this->assertFileExists($file);
-        $this->assertContains('testCopy', file_get_contents($file));
+        $this->assertStringContainsString('testCopy', file_get_contents($file));
         unlink($file);
     }
 }

@@ -43,9 +43,13 @@ class Env
     {
         if ($this->dotenvAdapter === null) {
             $this->dotenvAdapter = new ArrayAdapter();
-            $dotenvFactory = new DotenvFactory([$this->dotenvAdapter]);
-            $loader = new Loader([$this->dotenvPath], $dotenvFactory);
-            $loader->load();
+
+            // Load the .env file if it exists or leave the array adapter empty
+            if (file_exists($this->dotenvPath)) {
+                $dotenvFactory = new DotenvFactory([$this->dotenvAdapter]);
+                $loader = new Loader([$this->dotenvPath], $dotenvFactory);
+                $loader->load();
+            }
         }
         return $this->dotenvAdapter;
     }
