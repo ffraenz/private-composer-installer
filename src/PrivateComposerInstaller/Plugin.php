@@ -12,8 +12,6 @@ use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
-use Dotenv\Dotenv;
-use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -28,9 +26,17 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     protected $io;
 
     /**
-     * @var boolean
+     * @var Env
      */
-    protected $envInitialized = false;
+    protected $env;
+
+    /**
+     * Constructor
+     */
+    public function __construct()
+    {
+        $this->env = new Env(getcwd() . DIRECTORY_SEPARATOR . '.env');
+    }
 
     /**
      * @inheritdoc
@@ -94,7 +100,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (count($placeholders) > 0) {
             // Replace each placeholder with env var
             foreach ($placeholders as $placeholder) {
-                $value = $this->getEnv($placeholder);
+                $value = $this->env->get($placeholder);
                 $url = str_replace('{%' . $placeholder . '}', $value, $url);
             }
 
@@ -122,38 +128,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             return $operation->getTargetPackage();
         }
         return $operation->getPackage();
-    }
-
-    /**
-     * Retrieves environment variable for given key.
-     * @param string $key
-     * @return mixed
-     */
-    protected function getEnv(string $key)
-    {
-        // Retrieve env var
-        $value = getenv($key);
-
-        // Lazily initialize environment if env var is not set
-        if (empty($value) && ! $this->envInitialized) {
-            $this->envInitialized = true;
-
-            // Load dot env file if it exists
-            if (file_exists(getcwd() . DIRECTORY_SEPARATOR . '.env')) {
-                $dotenv = Dotenv::create(getcwd());
-                $dotenv->load();
-
-                // Retrieve env var from dot env file
-                $value = getenv($key);
-            }
-        }
-
-        // Check if env var is set
-        if (empty($value)) {
-            throw new MissingEnvException($key);
-        }
-
-        return $value;
     }
 
     /**

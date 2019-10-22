@@ -380,7 +380,7 @@ class PluginTest extends TestCase
         );
     }
 
-    public function testInjectsMultiplePlaceholdersFromDotEnvFile()
+    public function testInjectsMultiplePlaceholdersFromDotenvFile()
     {
         // Make env variables available through dot env file
         file_put_contents(
@@ -397,20 +397,33 @@ class PluginTest extends TestCase
 
     public function testPrefersVariableFromEnv()
     {
-        // Make env variables available
-        putenv('KEY_FOO=YAY');
+        // Make foo env variable available
+        putenv('KEY_BAR=YAY');
 
         // Make diffrent env variable available through dot env file
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
-            'KEY_FOO=NAY' . PHP_EOL
+            'KEY_FOO=YAY' . PHP_EOL . 'KEY_BAR=NAY' . PHP_EOL
         );
 
         // Expect the env variable to be used over the dot env file
         $this->expectFileDownload(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
-            'https://example.com/r/1.2.3/d?key=YAY'
+            'https://example.com/r/1.2.3/d?foo={%KEY_FOO}&bar={%KEY_BAR}',
+            'https://example.com/r/1.2.3/d?foo=YAY&bar=YAY'
         );
+    }
+
+    public function testSideEffectFreeDotenvLoading()
+    {
+        file_put_contents(
+            getcwd() . DIRECTORY_SEPARATOR . '.env',
+            'KEY_FOO=YAY' . PHP_EOL
+        );
+        $this->expectFileDownload(
+            'https://example.com/r/1.2.3/d?foo={%KEY_FOO}',
+            'https://example.com/r/1.2.3/d?foo=YAY'
+        );
+        $this->assertEquals(null, getenv('KEY_FOO'));
     }
 
     public function testThrowsExceptionWhenEnvVariableIsMissing()
