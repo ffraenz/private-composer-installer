@@ -5,6 +5,7 @@ namespace FFraenz\PrivateComposerInstaller;
 use Dotenv\Environment\Adapter\ArrayAdapter;
 use Dotenv\Environment\Adapter\PutenvAdapter;
 use Dotenv\Environment\DotenvFactory;
+use Dotenv\Exception\InvalidPathException;
 use Dotenv\Loader;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
@@ -44,11 +45,13 @@ class Env
         if ($this->dotenvAdapter === null) {
             $this->dotenvAdapter = new ArrayAdapter();
 
-            // Load the .env file if it exists or leave the array adapter empty
-            if (file_exists($this->dotenvPath)) {
+            try {
+                // Try to load the .env file
                 $dotenvFactory = new DotenvFactory([$this->dotenvAdapter]);
                 $loader = new Loader([$this->dotenvPath], $dotenvFactory);
                 $loader->load();
+            } catch (InvalidPathException $e) {
+                // Consider the .env file to be empty
             }
         }
         return $this->dotenvAdapter;
