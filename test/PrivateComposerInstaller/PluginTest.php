@@ -205,7 +205,7 @@ class PluginTest extends TestCase
         $package
             ->expects($this->exactly(2))
             ->method('getDistUrl')
-            ->willReturn('https://example.com/r/{%version}/d?key={%KEY_FOO}');
+            ->willReturn('https://example.com/r/{%VerSion}/d?key={%KEY_FOO}');
 
         $package
             ->expects($this->exactly(2))
