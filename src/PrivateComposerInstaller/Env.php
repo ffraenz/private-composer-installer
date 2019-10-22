@@ -10,35 +10,63 @@ use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
 class Env
 {
-    protected $arrayAdapter;
+    /**
+     * @var ArrayAdapter
+     */
+    protected $dotenvAdapter;
+
+    /**
+     * @var PutenvAdapter
+     */
     protected $getenvAdapter;
-    protected $path;
-    protected $loaded = false;
 
-    public function __construct($path)
+    /**
+     * @var string
+     */
+    protected $dotenvPath;
+
+    /**
+     * Constructor
+     * @param string $dotenvPath Path to the .env file
+     */
+    public function __construct(string $dotenvPath)
     {
-        $this->arrayAdapter = new ArrayAdapter();
         $this->getenvAdapter = new PutenvAdapter();
-        $this->path = $path;
+        $this->dotenvPath = $dotenvPath;
     }
 
-    public function load()
+    /**
+     * Lazily creates an ArrayAdapter instance providing .env file variables.
+     * @return ArrayAdapter
+     */
+    protected function getDotenvAdapter(): ArrayAdapter
     {
-        $this->loaded = true;
-        $loader = new Loader([$this->path], new DotenvFactory([$this->arrayAdapter]));
-        $loader->load();
+        if ($this->dotenvAdapter === null) {
+            $this->dotenvAdapter = new ArrayAdapter();
+            $dotenvFactory = new DotenvFactory([$this->dotenvAdapter]);
+            $loader = new Loader([$this->dotenvPath], $dotenvFactory);
+            $loader->load();
+        }
+        return $this->dotenvAdapter;
     }
 
-    public function get($key)
+    /**
+     * Returns an env variable for the given key.
+     * @param string $key Env variable key
+     * @throws MissingEnvException if there is no env var set for the given key.
+     * @return mixed
+     */
+    public function get(string $key)
     {
-        $this->getenvAdapter->get($key)->getOrCall(function() use ($key) {
-            if (!$this->loaded) {
-                $this->load();
-            }
-
-            return $this->arrayAdapter->get($key)->getOrCall(function() use ($key) {
-                throw new MissingEnvException($key);
+        // Try to read variable via putenv/getenv
+        return $this->getenvAdapter->get($key)
+            ->getOrCall(function () use ($key) {
+                // Try to read variable from .env file
+                return $this->getDotenvAdapter()->get($key)
+                    ->getOrCall(function () use ($key) {
+                        // Env variable is not available
+                        throw new MissingEnvException($key);
+                    });
             });
-        });
     }
 }

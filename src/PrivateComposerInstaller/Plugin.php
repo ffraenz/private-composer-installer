@@ -29,6 +29,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     protected $env;
 
+    /**
+     * Constructor
+     */
     public function __construct()
     {
         $this->env = new Env(getcwd());
