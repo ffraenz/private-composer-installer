@@ -137,6 +137,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     protected function getUrlPlaceholders(?string $url): array
     {
+        if (empty($url)) {
+            return [];
+        }
+
         $matches = [];
         preg_match_all('/{%([A-Za-z0-9-_]+)}/', $url, $matches);
 
