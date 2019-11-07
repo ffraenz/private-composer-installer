@@ -80,6 +80,32 @@ class PluginTest extends TestCase
         );
     }
 
+    public function testIgnorePackagesWithoutDistUrl()
+    {
+        // Mock a package
+        $package = $this
+            ->getMockBuilder(PackageInterface::class)
+            ->setMethods(['getDistUrl', 'getPrettyVersion'])
+            ->getMockForAbstractClass();
+
+        $package
+            ->expects($this->exactly(2))
+            ->method('getDistUrl')
+            ->willReturn(null);
+
+        $package
+            ->expects($this->never())
+            ->method('getPrettyVersion');
+
+        // Test package install event
+        $plugin = new Plugin();
+        $plugin->injectVersion($this->mockInstallEvent($package, 'install'));
+
+        // Test package update event
+        $plugin = new Plugin();
+        $plugin->injectVersion($this->mockInstallEvent($package, 'update'));
+    }
+
     public function testIgnorePackagesWithoutPlaceholders()
     {
         // Make an env variable available
