@@ -33,7 +33,7 @@ Add the desired private package to the `repositories` field inside `composer.jso
       "url": "https://example.com/package-name.zip?key={%PACKAGE_KEY}&version={%VERSION}"
     },
     "require": {
-      "ffraenz/private-composer-installer": "^3.0"
+      "ffraenz/private-composer-installer": "^4.0"
     }
   }
 }
@@ -68,7 +68,7 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
     },
     "require": {
       "composer/installers": "^1.4",
-      "ffraenz/private-composer-installer": "^3.0"
+      "ffraenz/private-composer-installer": "^4.0"
     }
   }
 }
@@ -85,6 +85,16 @@ Let composer require ACF Pro:
 ```bash
 composer require advanced-custom-fields/advanced-custom-fields-pro:*
 ```
+
+## Versions
+
+This package heavily depends on [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv) to load environment variables "automagically". This may cause version conflicts if your project already depends on it. Refer to this table to set the version of `private-composer-installer` accordingly or consider upgrading.
+
+| `private-composer-installer` | `vlucas/phpdotenv` |
+| ---------------------------- | ------------------ |
+| `^4.0`                       | `^4.0`             |
+| `^3.0`, `^2.0`               | `^3.0`             |
+| `^1.0`                       | `^2.2`             |
 
 ## Development
 
