@@ -2,11 +2,12 @@
 
 namespace FFraenz\PrivateComposerInstaller;
 
-use Dotenv\Environment\Adapter\ArrayAdapter;
-use Dotenv\Environment\Adapter\PutenvAdapter;
-use Dotenv\Environment\DotenvFactory;
 use Dotenv\Exception\InvalidPathException;
-use Dotenv\Loader;
+use Dotenv\Loader\Loader;
+use Dotenv\Repository\Adapter\ArrayAdapter;
+use Dotenv\Repository\Adapter\PutenvAdapter;
+use Dotenv\Repository\RepositoryBuilder;
+use Dotenv\Store\StoreBuilder;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
 class Env
@@ -27,13 +28,20 @@ class Env
     protected $dotenvPath;
 
     /**
-     * Constructor
-     * @param string $dotenvPath Path to the .env file
+     * @var string
      */
-    public function __construct(string $dotenvPath)
+    protected $dotenvName;
+
+    /**
+     * Constructor
+     * @param string $path Path to the directory containing the dot env file
+     * @param string $name Name of the dot env file
+     */
+    public function __construct(string $path, string $name = '.env')
     {
         $this->getenvAdapter = new PutenvAdapter();
-        $this->dotenvPath = $dotenvPath;
+        $this->dotenvPath = $path;
+        $this->dotenvName = $name;
     }
 
     /**
@@ -46,10 +54,18 @@ class Env
             $this->dotenvAdapter = new ArrayAdapter();
 
             try {
-                // Try to load the .env file
-                $dotenvFactory = new DotenvFactory([$this->dotenvAdapter]);
-                $loader = new Loader([$this->dotenvPath], $dotenvFactory);
-                $loader->load();
+                $repository = RepositoryBuilder::create()
+                    ->withReaders([])
+                    ->withWriters([$this->dotenvAdapter])
+                    ->make();
+
+                $fileStore = StoreBuilder::create()
+                    ->withPaths([$this->dotenvPath])
+                    ->withNames([$this->dotenvName])
+                    ->make();
+
+                $loader = new Loader();
+                $loader->load($repository, $fileStore->read());
             } catch (InvalidPathException $e) {
                 // Consider the .env file to be empty
             }

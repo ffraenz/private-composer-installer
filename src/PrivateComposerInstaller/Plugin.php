@@ -35,7 +35,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public function __construct()
     {
-        $this->env = new Env(getcwd() . DIRECTORY_SEPARATOR . '.env');
+        $this->env = new Env(getcwd(), '.env');
     }
 
     /**

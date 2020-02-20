@@ -21,12 +21,12 @@
   "require": {
     "php": "^7.1",
     "composer-plugin-api": "^1.0.0",
-    "vlucas/phpdotenv": "^3.0"
+    "vlucas/phpdotenv": "^4.0"
   },
   "require-dev": {
     "composer/composer": "1.0.*",
     "phpunit/phpunit": "^8.0",
-    "zendframework/zend-coding-standard": "^1.0"
+    "laminas/laminas-coding-standard": "^1.0"
   },
   "scripts": {
     "check": [
