@@ -1,4 +1,3 @@
-
 # private-composer-installer
 
 [![Packagist version](https://img.shields.io/packagist/v/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
@@ -48,7 +47,7 @@ PACKAGE_KEY=pleasedontusethiskey
 Let composer require the private package:
 
 ```bash
-composer require package-name/package-name:*
+composer require "package-name/package-name:*"
 ```
 
 ### WordPress plugins
@@ -80,21 +79,21 @@ Provide the ACF Pro key inside the `.env` file. To get this key, login to your [
 PLUGIN_ACF_KEY=pleasedontusethiskey
 ```
 
-Let composer require ACF Pro:
+Let Composer require ACF Pro:
 
 ```bash
-composer require advanced-custom-fields/advanced-custom-fields-pro:*
+composer require "advanced-custom-fields/advanced-custom-fields-pro:*"
 ```
 
 ## Versions
 
 This package heavily depends on [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv) to load environment variables "automagically". This may cause version conflicts if your project already depends on it. Refer to this table to set the version of `private-composer-installer` accordingly or consider upgrading.
 
-| `private-composer-installer` | `vlucas/phpdotenv` |
-| ---------------------------- | ------------------ |
-| `^4.0`                       | `^4.0`             |
-| `^3.0`, `^2.0`               | `^3.0`             |
-| `^1.0`                       | `^2.2`             |
+| `vlucas/phpdotenv` | `private-composer-installer` |
+| ------------------ | ---------------------------- |
+| `^4.0`             | `^4.0`                       |
+| `^3.0`             | `^3.0`, `^2.0`               |
+| `^2.2`             | `^1.0`                       |
 
 ## Development
 
