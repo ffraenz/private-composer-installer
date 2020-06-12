@@ -21,9 +21,13 @@ matrix:
       env:
         - CS_CHECK=true
         - TEST_COVERAGE=true
+    - php: 7.3
+      env:
+        - COMPOSER2=true
 
 before_install:
   - if [[ ! -z $PHP_UNIT_VERSION ]] ; then composer require --dev --no-update phpunit/phpunit $PHP_UNIT_VERSION ; fi
+  - if [[ ! -z $COMPOSER2 ]] ; then composer self-update --snapshot ; fi
 
 install:
   - travis_retry composer install $COMPOSER_ARGS
