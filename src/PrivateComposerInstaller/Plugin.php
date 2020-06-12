@@ -3,15 +3,15 @@
 namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Composer;
-use Composer\DependencyResolver\Operation\OperationInterface;
 use Composer\EventDispatcher\EventSubscriberInterface;
+use Composer\IO\IOInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
-use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
+use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -26,16 +26,48 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     protected $io;
 
     /**
-     * @var Env
+     * @var EnvResolverInterface
      */
-    protected $env;
+    protected $envResolver;
 
     /**
-     * Constructor
+     * Return the composer instance.
+     * @return Composer
      */
-    public function __construct()
+    public function getComposer(): Composer
     {
-        $this->env = new Env(getcwd(), '.env');
+        return $this->composer;
+    }
+
+    /**
+     * Return the IO interface object.
+     * @return IOInterface
+     */
+    public function getIO(): IOInterface
+    {
+        return $this->io;
+    }
+
+    /**
+     * Lazily instantiate an env resolver instance.
+     * @return EnvResolverInterface
+     */
+    public function getEnvResolver(): EnvResolverInterface
+    {
+        if ($this->envResolver === null) {
+            $this->envResolver = new DotenvEnvResolver(getcwd(), '.env');
+        }
+        return $this->envResolver;
+    }
+
+    /**
+     * Set the env resolver instance.
+     * @param EnvResolverInterface $envResolver Env resolver instance
+     * @return void
+     */
+    public function setEnvResolver(EnvResolverInterface $envResolver): void
+    {
+        $this->envResolver = $envResolver;
     }
 
     /**
@@ -44,9 +76,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     public static function getSubscribedEvents()
     {
         return [
-            PackageEvents::PRE_PACKAGE_INSTALL => 'injectVersion',
-            PackageEvents::PRE_PACKAGE_UPDATE => 'injectVersion',
-            PluginEvents::PRE_FILE_DOWNLOAD => ['injectPlaceholders', -1],
+            PackageEvents::PRE_PACKAGE_INSTALL => 'handlePrePackageInstall',
+            PackageEvents::PRE_PACKAGE_UPDATE => 'handlePrePackageUpdate',
+            PluginEvents::PRE_FILE_DOWNLOAD => ['handlePreFileDownload', -1],
         ];
     }
 
@@ -60,82 +92,134 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Injects package version into dist url if it contains placeholders.
+     * @inheritdoc
+     */
+    public function deactivate(Composer $composer, IOInterface $io)
+    {
+        $this->composer = null;
+        $this->io = null;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function uninstall(Composer $composer, IOInterface $io)
+    {
+        //
+    }
+
+    /**
+     * Handle PRE_PACKAGE_INSTALL composer event.
      * @param PackageEvent $event
      * @return void
      */
-    public function injectVersion(PackageEvent $event): void
+    public function handlePrePackageInstall(PackageEvent $event): void
     {
-        $package = $this->getOperationPackage($event->getOperation());
-        $url = $package->getDistUrl();
+        $package = $event->getOperation()->getPackage();
+        $distUrl = $package->getDistUrl();
+        $filteredDistUrl = $this->filterDistUrl($distUrl, $package);
 
-        // Check if package dist url contains any placeholders
-        $placeholders = $this->getUrlPlaceholders($url);
+        if ($filteredDistUrl !== $distUrl) {
+            $package->setDistUrl($filteredDistUrl);
+        }
+    }
+
+    /**
+     * Handle PRE_PACKAGE_UPDATE composer event.
+     * @param PackageEvent $event
+     * @return void
+     */
+    public function handlePrePackageUpdate(PackageEvent $event): void
+    {
+        $package = $event->getOperation()->getTargetPackage();
+        $distUrl = $package->getDistUrl();
+        $filteredDistUrl = $this->filterDistUrl($distUrl, $package);
+
+        if ($filteredDistUrl !== $distUrl) {
+            $package->setDistUrl($filteredDistUrl);
+        }
+    }
+
+    /**
+     * Handle PRE_FILE_DOWNLOAD composer event
+     * @param PreFileDownloadEvent $event
+     * @return void
+     */
+    public function handlePreFileDownload(PreFileDownloadEvent $event): void
+    {
+        $processedUrl = $event->getProcessedUrl();
+        $filteredProcessedUrl = $this->filterProcessedUrl($processedUrl);
+
+        if ($filteredProcessedUrl !== $processedUrl) {
+            if (PluginInterface::PLUGIN_API_VERSION === '1.0.0') {
+                // Swap out remote filesystem to change processed URL
+                $originalRemoteFilesystem = $event->getRemoteFilesystem();
+                $event->setRemoteFilesystem(new RemoteFilesystem(
+                    $filteredProcessedUrl,
+                    $this->io,
+                    $this->composer->getConfig(),
+                    $originalRemoteFilesystem->getOptions(),
+                    $originalRemoteFilesystem->isTlsDisabled()
+                ));
+            } else {
+                // Set processed URL
+                $event->setProcessedUrl($filteredProcessedUrl);
+            }
+        }
+    }
+
+    /**
+     * Filter the dist URL for a given package. Filtered dist URLs get stored
+     * inside `composer.lock`.
+     * @param string|null $url Dist URL
+     * @param PackageInterface $package Package object
+     * @return Filtered dist URL
+     */
+    public function filterDistUrl(?string $url, PackageInterface $package): ?string
+    {
+        // Check if package dist url contains any placeholders (incl. version)
+        $placeholders = $this->readUrlPlaceholders($url);
         if (count($placeholders) > 0) {
+            // Inject version into URL
             $version = $package->getPrettyVersion();
-
             if (array_search('version', $placeholders) !== false) {
                 // If there is a version placeholder in the URL, fulfill it
-                $package->setDistUrl(preg_replace('/{%version}/i', $version, $url));
+                $url = preg_replace('/{%version}/i', $version, $url);
             } elseif (strpos($url, $version) === false) {
                 // If the exact version is not already part of the URL, append
                 // it as a hash to the end of the URL to force a re-download
                 // when updating the version
-                $package->setDistUrl($url . '#v' . $version);
+                $url .= '#v' . $version;
             }
         }
+        return $url;
     }
 
     /**
-     * Replaces placeholders with corresponding environment variables.
-     * @param PreFileDownloadEvent $event
-     * @return void
+     * Filter the given processed URL before downloading. Filtered processed
+     * URLs do not get stored inside `composer.lock`.
+     * @param string|null $url Processed URL
+     * @return Filtered processed URL
      */
-    public function injectPlaceholders(PreFileDownloadEvent $event): void
+    public function filterProcessedUrl(?string $url): ?string
     {
-        $url = $event->getProcessedUrl();
-
-        // Check if package url contains any placeholders
-        $placeholders = $this->getUrlPlaceholders($url);
+        $placeholders = $this->readUrlPlaceholders($url);
         if (count($placeholders) > 0) {
             // Replace each placeholder with env var
             foreach ($placeholders as $placeholder) {
-                $value = $this->env->get($placeholder);
+                $value = $this->resolveEnvValue($placeholder);
                 $url = str_replace('{%' . $placeholder . '}', $value, $url);
             }
-
-            // Download file from different location
-            $originalRemoteFilesystem = $event->getRemoteFilesystem();
-            $event->setRemoteFilesystem(new RemoteFilesystem(
-                $url,
-                $this->io,
-                $this->composer->getConfig(),
-                $originalRemoteFilesystem->getOptions(),
-                $originalRemoteFilesystem->isTlsDisabled()
-            ));
         }
+        return $url;
     }
 
     /**
-     * Returns package for given operation.
-     * @param OperationInterface $operation
-     * @return PackageInterface
-     */
-    protected function getOperationPackage(
-        OperationInterface $operation
-    ): PackageInterface {
-        if ($operation->getJobType() === 'update') {
-            return $operation->getTargetPackage();
-        }
-        return $operation->getPackage();
-    }
-
-    /**
-     * Retrieves placeholders for given url.
+     * Retrieve placeholders for the given url.
      * @param ?string $url
      * @return string[]
      */
-    protected function getUrlPlaceholders(?string $url): array
+    public function readUrlPlaceholders(?string $url): array
     {
         if (empty($url)) {
             return [];
@@ -157,20 +241,17 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Returns the composer instance.
-     * @return Composer
+     * Resolve environment value by the given key.
+     * @param string $key Env key
+     * @throws MissingEnvException If the given key cannot be resolved.
+     * @return Env value
      */
-    public function getComposer(): Composer
+    public function resolveEnvValue(string $key): string
     {
-        return $this->composer;
-    }
-
-    /**
-     * Returns the IO interface object.
-     * @return IOInterface
-     */
-    public function getIO(): IOInterface
-    {
-        return $this->io;
+        $value = $this->getEnvResolver()->get($key);
+        if (empty($value) || ! is_string($value)) {
+            throw new MissingEnvException($key);
+        }
+        return $value;
     }
 }

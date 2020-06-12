@@ -8,9 +8,8 @@ use Dotenv\Repository\Adapter\ArrayAdapter;
 use Dotenv\Repository\Adapter\PutenvAdapter;
 use Dotenv\Repository\RepositoryBuilder;
 use Dotenv\Store\StoreBuilder;
-use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
-class Env
+class DotenvEnvResolver implements EnvResolverInterface
 {
     /**
      * @var ArrayAdapter
@@ -74,10 +73,9 @@ class Env
     }
 
     /**
-     * Returns an env variable for the given key.
-     * @param string $key Env variable key
-     * @throws MissingEnvException if there is no env var set for the given key.
-     * @return mixed
+     * Return an env value for the given key.
+     * @param string $key Env var key
+     * @return mixed|null Env var value or null, if it is not set
      */
     public function get(string $key)
     {
@@ -87,8 +85,7 @@ class Env
                 // Try to read variable from .env file
                 return $this->getDotenvAdapter()->get($key)
                     ->getOrCall(function () use ($key) {
-                        // Env variable is not available
-                        throw new MissingEnvException($key);
+                        return null;
                     });
             });
     }

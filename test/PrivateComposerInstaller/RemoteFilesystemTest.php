@@ -3,6 +3,7 @@
 namespace FFraenz\PrivateComposerInstaller\Test;
 
 use Composer\IO\IOInterface;
+use Composer\Plugin\PluginInterface;
 use FFraenz\PrivateComposerInstaller\RemoteFilesystem;
 use PHPUnit\Framework\TestCase;
 
@@ -17,6 +18,10 @@ class RemoteFilesystemTest extends TestCase
 
     public function testExtendsComposerRemoteFilesystem()
     {
+        if (PluginInterface::PLUGIN_API_VERSION === '2.0.0') {
+            $this->markTestSkipped();
+        }
+
         $this->assertInstanceOf(
             \Composer\Util\RemoteFilesystem::class,
             new RemoteFilesystem('', $this->io)
@@ -25,6 +30,10 @@ class RemoteFilesystemTest extends TestCase
 
     public function testCopyUsesPrivateFileUrl()
     {
+        if (PluginInterface::PLUGIN_API_VERSION === '2.0.0') {
+            $this->markTestSkipped();
+        }
+
         // Test inspired by testCopy in
         // Composer\Test\Util\RemoteFilesystemTest
         $privateFileUrl = 'file://' . __FILE__;
