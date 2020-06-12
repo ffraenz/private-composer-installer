@@ -310,7 +310,7 @@ class PluginTest extends TestCase
                 ->expects($changeExpected ? $this->once() : $this->never())
                 ->method('setRemoteFilesystem')
                 ->with($this->callback(
-                    function ($rfs) use ($config, $io, $options, $tlsDisabled) {
+                    function ($rfs) use ($options, $tlsDisabled, $expectedUrl) {
                         $this->assertEquals($options, $rfs->getOptions());
                         $this->assertEquals($tlsDisabled, $rfs->isTlsDisabled());
                         $this->assertEquals(
