@@ -1,5 +1,5 @@
-sudo: false
-
+dist: xenial
+os: linux
 language: php
 
 cache:
@@ -11,7 +11,7 @@ env:
     - COMPOSER_ARGS="--no-interaction"
     - COVERAGE_DEPS="php-coveralls/php-coveralls"
 
-matrix:
+jobs:
   include:
     - php: 7.1
       env:
@@ -27,12 +27,12 @@ matrix:
 
 before_install:
   - if [[ ! -z $PHP_UNIT_VERSION ]] ; then composer require --dev --no-update phpunit/phpunit $PHP_UNIT_VERSION ; fi
-  - if [[ ! -z $COMPOSER2 ]] ; then composer self-update --snapshot ; fi
+  - if [[ ! -z $COMPOSER2 ]] ; then composer self-update --snapshot ; composer config minimum-stability dev ; fi
 
 install:
   - travis_retry composer install $COMPOSER_ARGS
   - if [[ $TEST_COVERAGE == 'true' ]] ; then travis_retry composer require --dev $COMPOSER_ARGS $COVERAGE_DEPS ; fi
-  - if [[ ! -z $COMPOSER2 ]] ; then travis_retry composer require --dev $COMPOSER_ARGS composer/composer ; fi
+  - if [[ ! -z $COMPOSER2 ]] ; then travis_retry composer require --dev $COMPOSER_ARGS composer/composer 2.0.0-alpha1 ; fi
 
 script:
   - if [[ $TEST_COVERAGE == 'true' ]] ; then composer test-coverage ; else composer test ; fi
