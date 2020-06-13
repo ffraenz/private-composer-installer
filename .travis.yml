@@ -24,6 +24,7 @@ jobs:
     - php: 7.3
       env:
         - COMPOSER2=true
+        - TEST_COVERAGE=true
 
 before_install:
   - if [[ ! -z $PHP_UNIT_VERSION ]] ; then composer require --dev --no-update phpunit/phpunit $PHP_UNIT_VERSION ; fi
