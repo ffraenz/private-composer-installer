@@ -14,6 +14,7 @@ use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use Composer\Util\RemoteFilesystem;
+use FFraenz\PrivateComposerInstaller\EnvResolverInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Plugin;
 use PHPUnit\Framework\TestCase;
@@ -43,7 +44,7 @@ class PluginTest extends TestCase
         $this->assertInstanceOf(EventSubscriberInterface::class, new Plugin());
     }
 
-    public function testActivateMakesComposerAndIOAvailable()
+    public function testActivateAndDeactivateSetsAndClearsComposerAndIO()
     {
         $composer = $this->createMock(Composer::class);
         $io = $this->createMock(IOInterface::class);
@@ -51,6 +52,40 @@ class PluginTest extends TestCase
         $plugin->activate($composer, $io);
         $this->assertEquals($composer, $plugin->getComposer());
         $this->assertEquals($io, $plugin->getIO());
+        $plugin->deactivate($composer, $io);
+        $this->assertNull($plugin->getComposer());
+        $this->assertNull($plugin->getIO());
+        $plugin->uninstall($composer, $io);
+    }
+
+    public function testDeactivateClearsComposerAndIO()
+    {
+        $composer = $this->createMock(Composer::class);
+        $io = $this->createMock(IOInterface::class);
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+        $this->assertEquals($composer, $plugin->getComposer());
+        $this->assertEquals($io, $plugin->getIO());
+    }
+
+    public function testLazyEnvResolverInstantiation()
+    {
+        $composer = $this->createMock(Composer::class);
+        $io = $this->createMock(IOInterface::class);
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+        $this->assertInstanceOf(EnvResolverInterface::class, $plugin->getEnvResolver());
+    }
+
+    public function testSetEnvResolver()
+    {
+        $composer = $this->createMock(Composer::class);
+        $io = $this->createMock(IOInterface::class);
+        $envResolver = $this->createMock(EnvResolverInterface::class);
+        $plugin = new Plugin();
+        $plugin->activate($composer, $io);
+        $plugin->setEnvResolver($envResolver);
+        $this->assertEquals($envResolver, $plugin->getEnvResolver());
     }
 
     public function testSubscribesToEvents()

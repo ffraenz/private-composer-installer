@@ -32,18 +32,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Return the composer instance.
-     * @return Composer
+     * @return Composer|null
      */
-    public function getComposer(): Composer
+    public function getComposer(): ?Composer
     {
         return $this->composer;
     }
 
     /**
      * Return the IO interface object.
-     * @return IOInterface
+     * @return IOInterface|null
      */
-    public function getIO(): IOInterface
+    public function getIO(): ?IOInterface
     {
         return $this->io;
     }

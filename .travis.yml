@@ -32,6 +32,7 @@ before_install:
 install:
   - travis_retry composer install $COMPOSER_ARGS
   - if [[ $TEST_COVERAGE == 'true' ]] ; then travis_retry composer require --dev $COMPOSER_ARGS $COVERAGE_DEPS ; fi
+  - if [[ ! -z $COMPOSER2 ]] ; then travis_retry composer require --dev $COMPOSER_ARGS composer/composer ; fi
 
 script:
   - if [[ $TEST_COVERAGE == 'true' ]] ; then composer test-coverage ; else composer test ; fi
