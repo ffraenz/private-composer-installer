@@ -13,35 +13,24 @@ class RemoteFilesystemTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->io = $this->createMock(IOInterface::class);
-    }
-
-    public function testExtendsComposerRemoteFilesystem()
-    {
-        if (PluginInterface::PLUGIN_API_VERSION === '2.0.0') {
-            $this->markTestSkipped();
-        }
-
-        $this->assertInstanceOf(
-            \Composer\Util\RemoteFilesystem::class,
-            new RemoteFilesystem('', $this->io)
-        );
-    }
-
-    protected function setUp(): void
-    {
+        // As of Composer 2 this class is no longer in use
         if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '>=')) {
             $this->markTestSkipped();
         }
 
         $this->io = $this->createMock(IOInterface::class);
     }
+
+    public function testExtendsComposerRemoteFilesystem()
+    {
+        $this->assertInstanceOf(
+            \Composer\Util\RemoteFilesystem::class,
+            new RemoteFilesystem('', $this->io)
+        );
+    }
+
     public function testCopyUsesPrivateFileUrl()
     {
-        if (PluginInterface::PLUGIN_API_VERSION === '2.0.0') {
-            $this->markTestSkipped();
-        }
-
         // Test inspired by testCopy in
         // Composer\Test\Util\RemoteFilesystemTest
         $privateFileUrl = 'file://' . __FILE__;
