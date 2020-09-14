@@ -283,7 +283,7 @@ class PluginTest extends TestCase
     protected function expectProcessedUrl($processedUrl, $expectedUrl)
     {
         $changeExpected = $processedUrl !== $expectedUrl;
-        $usesRemoteFilesystem = PluginInterface::PLUGIN_API_VERSION === '1.0.0';
+        $usesRemoteFilesystem = version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '<');
 
         $composer = $this
             ->getMockBuilder(Composer::class)
