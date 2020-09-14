@@ -151,7 +151,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $filteredProcessedUrl = $this->filterProcessedUrl($processedUrl);
 
         if ($filteredProcessedUrl !== $processedUrl) {
-            if (PluginInterface::PLUGIN_API_VERSION === '1.0.0') {
+            if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '<')) {
                 // Swap out remote filesystem to change processed URL
                 $originalRemoteFilesystem = $event->getRemoteFilesystem();
                 $event->setRemoteFilesystem(new RemoteFilesystem(

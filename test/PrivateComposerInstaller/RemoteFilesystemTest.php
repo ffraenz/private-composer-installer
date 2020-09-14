@@ -28,6 +28,14 @@ class RemoteFilesystemTest extends TestCase
         );
     }
 
+    protected function setUp(): void
+    {
+        if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '>=')) {
+            $this->markTestSkipped();
+        }
+
+        $this->io = $this->createMock(IOInterface::class);
+    }
     public function testCopyUsesPrivateFileUrl()
     {
         if (PluginInterface::PLUGIN_API_VERSION === '2.0.0') {
