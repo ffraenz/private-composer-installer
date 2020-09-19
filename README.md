@@ -40,7 +40,7 @@ Add the desired private package to the `repositories` field inside `composer.jso
 
 Provide the private package dist URL inside the `.env` file:
 
-```
+```ini
 PACKAGE_KEY=pleasedontusethiskey
 ```
 
@@ -73,9 +73,9 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
 }
 ```
 
-Provide the ACF Pro key inside the `.env` file. To get this key, login to your [ACF account](https://www.advancedcustomfields.com/my-account/) and scroll down to 'Licenses & Downloads'.
+Provide the ACF Pro key inside the `.env` file. To get this key, login to your [ACF account](https://www.advancedcustomfields.com/my-account/) and scroll down to "Licenses & Downloads" or read the value of `acf_pro_license` WordPress option.
 
-```
+```ini
 PLUGIN_ACF_KEY=pleasedontusethiskey
 ```
 
