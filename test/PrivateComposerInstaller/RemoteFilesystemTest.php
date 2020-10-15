@@ -11,7 +11,7 @@ class RemoteFilesystemTest extends TestCase
 {
     protected $io;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         // As of Composer 2 this class is no longer in use
         if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '>=')) {
