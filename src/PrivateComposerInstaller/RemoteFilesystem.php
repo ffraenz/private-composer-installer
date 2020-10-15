@@ -25,7 +25,7 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
         $privateFileUrl,
         IOInterface $io,
         Config $config = null,
-        array $options = [],
+        $options = [],
         $disableTls = false
     ) {
         $this->privateFileUrl = $privateFileUrl;

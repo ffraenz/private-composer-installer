@@ -9,5 +9,5 @@ interface EnvResolverInterface
      * @param string $key Env var key
      * @return mixed|null Env var value or null, if it is not set
      */
-    public function get(string $key);
+    public function get($key);
 }

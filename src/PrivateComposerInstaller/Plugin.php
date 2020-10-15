@@ -34,7 +34,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Return the composer instance.
      * @return Composer|null
      */
-    public function getComposer(): ?Composer
+    public function getComposer()
     {
         return $this->composer;
     }
@@ -43,7 +43,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Return the IO interface object.
      * @return IOInterface|null
      */
-    public function getIO(): ?IOInterface
+    public function getIO()
     {
         return $this->io;
     }
@@ -65,7 +65,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param EnvResolverInterface $envResolver Env resolver instance
      * @return void
      */
-    public function setEnvResolver(EnvResolverInterface $envResolver): void
+    public function setEnvResolver(EnvResolverInterface $envResolver)
     {
         $this->envResolver = $envResolver;
     }
@@ -75,10 +75,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public static function getSubscribedEvents()
     {
-        return [
-            PackageEvents::PRE_PACKAGE_INSTALL => 'handlePrePackageInstall',
-            PackageEvents::PRE_PACKAGE_UPDATE => 'handlePrePackageUpdate',
-            PluginEvents::PRE_FILE_DOWNLOAD => ['handlePreFileDownload', -1],
+        return self::isComposer1() ? [
+            PackageEvents::PRE_PACKAGE_INSTALL => 'handlePreInstallUpdateEvent',
+            PackageEvents::PRE_PACKAGE_UPDATE => 'handlePreInstallUpdateEvent',
+            PluginEvents::PRE_FILE_DOWNLOAD => ['handlePreDownloadEvent', -1],
+        ] : [
+            PluginEvents::PRE_FILE_DOWNLOAD => ['handlePreDownloadEvent', -1],
         ];
     }
 
@@ -109,49 +111,54 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Handle PRE_PACKAGE_INSTALL composer event.
-     * @param PackageEvent $event
+     * Handle PRE_PACKAGE_INSTALL and PRE_PACKAGE_UPDATE Composer events.
+     * Only gets triggered running Composer 1.
+     * @param PackageEvent $event Composer install or update event
      * @return void
      */
-    public function handlePrePackageInstall(PackageEvent $event): void
+    public function handlePreInstallUpdateEvent(PackageEvent $event)
     {
-        $package = $event->getOperation()->getPackage();
-        $distUrl = $package->getDistUrl();
-        $filteredDistUrl = $this->filterDistUrl($distUrl, $package);
+        $operation = $event->getOperation();
+        $package = $operation->getJobType() === 'update'
+            ? $operation->getTargetPackage()
+            : $operation->getPackage();
 
+        // If running Composer 1 the package version needs to be injected
+        // before the dist URL gets written into `composer.lock`
+        $distUrl = $package->getDistUrl();
+        $version = $package->getPrettyVersion();
+        $filteredDistUrl = $this->fulfillVersionPlaceholder($distUrl, $version);
         if ($filteredDistUrl !== $distUrl) {
             $package->setDistUrl($filteredDistUrl);
         }
     }
 
     /**
-     * Handle PRE_PACKAGE_UPDATE composer event.
-     * @param PackageEvent $event
+     * Fulfill package URL placeholders before downloading the package.
+     * @param PreFileDownloadEvent $event Composer event
      * @return void
      */
-    public function handlePrePackageUpdate(PackageEvent $event): void
+    public function handlePreDownloadEvent(PreFileDownloadEvent $event)
     {
-        $package = $event->getOperation()->getTargetPackage();
-        $distUrl = $package->getDistUrl();
-        $filteredDistUrl = $this->filterDistUrl($distUrl, $package);
+        $filteredProcessedUrl = $processedUrl = $event->getProcessedUrl();
 
-        if ($filteredDistUrl !== $distUrl) {
-            $package->setDistUrl($filteredDistUrl);
+        if (! self::isComposer1()) {
+            // Fulfill version placeholder
+            // In Composer 1 this step is done upon package install & update
+            $package = $event->getContext();
+            $version = $package->getPrettyVersion();
+            $filteredProcessedUrl = $this->fulfillVersionPlaceholder(
+                $filteredProcessedUrl,
+                $version
+            );
         }
-    }
 
-    /**
-     * Handle PRE_FILE_DOWNLOAD composer event
-     * @param PreFileDownloadEvent $event
-     * @return void
-     */
-    public function handlePreFileDownload(PreFileDownloadEvent $event): void
-    {
-        $processedUrl = $event->getProcessedUrl();
-        $filteredProcessedUrl = $this->filterProcessedUrl($processedUrl);
+        // Fulfill env placeholders
+        $filteredProcessedUrl = $this->fulfillPlaceholders($processedUrl);
 
+        // Submit changes to Composer, if any
         if ($filteredProcessedUrl !== $processedUrl) {
-            if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '<')) {
+            if (self::isComposer1()) {
                 // Swap out remote filesystem to change processed URL
                 $originalRemoteFilesystem = $event->getRemoteFilesystem();
                 $event->setRemoteFilesystem(new RemoteFilesystem(
@@ -172,16 +179,15 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Filter the dist URL for a given package. Filtered dist URLs get stored
      * inside `composer.lock`.
      * @param string|null $url Dist URL
-     * @param PackageInterface $package Package object
+     * @param string $version Package version
      * @return Filtered dist URL
      */
-    public function filterDistUrl(?string $url, PackageInterface $package): ?string
+    public function fulfillVersionPlaceholder($url, $version)
     {
         // Check if package dist url contains any placeholders (incl. version)
-        $placeholders = $this->readUrlPlaceholders($url);
+        $placeholders = $this->identifyPlaceholders($url);
         if (count($placeholders) > 0) {
             // Inject version into URL
-            $version = $package->getPrettyVersion();
             if (array_search('version', $placeholders) !== false) {
                 // If there is a version placeholder in the URL, fulfill it
                 $url = preg_replace('/{%version}/i', $version, $url);
@@ -201,9 +207,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param string|null $url Processed URL
      * @return Filtered processed URL
      */
-    public function filterProcessedUrl(?string $url): ?string
+    public function fulfillPlaceholders($url)
     {
-        $placeholders = $this->readUrlPlaceholders($url);
+        $placeholders = $this->identifyPlaceholders($url);
         if (count($placeholders) > 0) {
             // Replace each placeholder with env var
             foreach ($placeholders as $placeholder) {
@@ -219,7 +225,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param ?string $url
      * @return string[]
      */
-    public function readUrlPlaceholders(?string $url): array
+    public function identifyPlaceholders($url)
     {
         if (empty($url)) {
             return [];
@@ -246,12 +252,21 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @throws MissingEnvException If the given key cannot be resolved.
      * @return Env value
      */
-    public function resolveEnvValue(string $key): string
+    public function resolveEnvValue($key)
     {
         $value = $this->getEnvResolver()->get($key);
         if (empty($value) || ! is_string($value)) {
             throw new MissingEnvException($key);
         }
         return $value;
+    }
+
+    /**
+     * Test if this plugin runs within Composer 2.
+     * @return boolean True, if Composer 2 or later is in use
+     */
+    protected static function isComposer1()
+    {
+        return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
     }
 }

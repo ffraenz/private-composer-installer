@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 
 class PluginTest extends TestCase
 {
-    protected function tearDown(): void
+    protected function tearDown()
     {
         // Unset environment variables
         putenv('KEY_FOO');
@@ -92,63 +92,80 @@ class PluginTest extends TestCase
     {
         $subscribedEvents = Plugin::getSubscribedEvents();
         $this->assertEquals(
-            $subscribedEvents[PackageEvents::PRE_PACKAGE_INSTALL],
-            'handlePrePackageInstall'
-        );
-        $this->assertEquals(
-            $subscribedEvents[PackageEvents::PRE_PACKAGE_UPDATE],
-            'handlePrePackageUpdate'
-        );
-        $this->assertEquals(
             $subscribedEvents[PluginEvents::PRE_FILE_DOWNLOAD],
-            ['handlePreFileDownload', -1]
+            ['handlePreDownloadEvent', -1]
         );
+        if (self::isComposer1()) {
+            $this->assertEquals(
+                $subscribedEvents[PackageEvents::PRE_PACKAGE_INSTALL],
+                'handlePreInstallUpdateEvent'
+            );
+            $this->assertEquals(
+                $subscribedEvents[PackageEvents::PRE_PACKAGE_UPDATE],
+                'handlePreInstallUpdateEvent'
+            );
+        }
     }
 
-    public function testIgnorePackagesWithoutDistUrl()
+    public function testIgnoreVersionLockWithoutDistUrl()
     {
+        if (! self::isComposer1()) {
+            $this->markTestSkipped();
+        }
         putenv('KEY_FOO=TEST');
-        $this->expectDistUrl(
+        $this->expectLockedDistUrl(
             null,
             '1.2.3',
             null
         );
     }
 
-    public function testIgnorePackagesWithoutPlaceholders()
+    public function testIgnoreVersionLockWithoutPlaceholders()
     {
+        if (! self::isComposer1()) {
+            $this->markTestSkipped();
+        }
         putenv('KEY_FOO=TEST');
-        $this->expectDistUrl(
+        $this->expectLockedDistUrl(
             'https://example.com/download',
             '1.2.3',
             'https://example.com/download'
         );
     }
 
-    public function testSkipVersionInjectionIfAlreadyPresent()
+    public function testSkipVersionLockIfAlreadyPresent()
     {
+        if (! self::isComposer1()) {
+            $this->markTestSkipped();
+        }
         putenv('KEY_FOO=TEST');
-        $this->expectDistUrl(
+        $this->expectLockedDistUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
             '1.2.3',
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}'
         );
     }
 
-    public function testInjectVersion()
+    public function testVersionLockWithoutVersionPlaceholder()
     {
+        if (! self::isComposer1()) {
+            $this->markTestSkipped();
+        }
         putenv('KEY_FOO=TEST');
-        $this->expectDistUrl(
+        $this->expectLockedDistUrl(
             'https://example.com/d?key={%KEY_FOO}',
             '1.2.3',
             'https://example.com/d?key={%KEY_FOO}#v1.2.3'
         );
     }
 
-    public function testFulfillVersionPlaceholder()
+    public function testVersionLockWithVersionPlaceholder()
     {
+        if (! self::isComposer1()) {
+            $this->markTestSkipped();
+        }
         putenv('KEY_FOO=TEST');
-        $this->expectDistUrl(
+        $this->expectLockedDistUrl(
             'https://example.com/r/{%VerSion}/d?key={%KEY_FOO}',
             '1.2.3',
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}'
@@ -164,6 +181,7 @@ class PluginTest extends TestCase
         );
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}'
         );
     }
@@ -172,6 +190,7 @@ class PluginTest extends TestCase
     {
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d',
+            '1.2.3',
             'https://example.com/r/1.2.3/d'
         );
     }
@@ -181,6 +200,7 @@ class PluginTest extends TestCase
         putenv('KEY_FOO=TEST');
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?key=TEST'
         );
     }
@@ -190,6 +210,7 @@ class PluginTest extends TestCase
         putenv('KEY_FOO=TEST');
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&confirm={%KEY_FOO}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?key=TEST&confirm=TEST'
         );
     }
@@ -200,6 +221,7 @@ class PluginTest extends TestCase
         putenv('KEY_BAR=World');
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?key=Hello&secret=World'
         );
     }
@@ -212,6 +234,7 @@ class PluginTest extends TestCase
         );
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?key=Hello&secret=World'
         );
     }
@@ -225,6 +248,7 @@ class PluginTest extends TestCase
         );
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?foo={%KEY_FOO}&bar={%KEY_BAR}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?foo=YAY&bar=YAY'
         );
     }
@@ -237,53 +261,15 @@ class PluginTest extends TestCase
         );
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?foo={%KEY_FOO}',
+            '1.2.3',
             'https://example.com/r/1.2.3/d?foo=YAY'
         );
         $this->assertEquals(null, getenv('KEY_FOO'));
     }
 
-    protected function expectDistUrl($distUrl, $version, $expectedDistUrl)
-    {
-        $changeExpected = $distUrl !== $expectedDistUrl;
-
-        // Mock a package
-        $package = $this
-            ->getMockBuilder(PackageInterface::class)
-            ->setMethods(['getDistUrl', 'getPrettyVersion', 'setDistUrl'])
-            ->getMockForAbstractClass();
-
-        $package
-            ->method('getPrettyVersion')
-            ->willReturn($version);
-
-        $package
-            ->method('getDistUrl')
-            ->willReturn($distUrl);
-
-        if ($changeExpected) {
-            $package
-                ->expects($this->exactly(2))
-                ->method('setDistUrl')
-                ->with($expectedDistUrl);
-        } else {
-            $package
-                ->expects($this->never())
-                ->method('setDistUrl');
-        }
-
-        // Test package install event
-        $plugin = new Plugin();
-        $plugin->handlePrePackageInstall($this->mockInstallEvent($package, 'install'));
-
-        // Test package update event
-        $plugin = new Plugin();
-        $plugin->handlePrePackageUpdate($this->mockInstallEvent($package, 'update'));
-    }
-
-    protected function expectProcessedUrl($processedUrl, $expectedUrl)
+    protected function expectProcessedUrl($processedUrl, $version, $expectedUrl)
     {
         $changeExpected = $processedUrl !== $expectedUrl;
-        $usesRemoteFilesystem = version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '<');
 
         $composer = $this
             ->getMockBuilder(Composer::class)
@@ -297,11 +283,12 @@ class PluginTest extends TestCase
         $event = $this
             ->getMockBuilder(PreFileDownloadEvent::class)
             ->disableOriginalConstructor()
-            ->setMethods($usesRemoteFilesystem ? [
+            ->setMethods(self::isComposer1() ? [
                 'getProcessedUrl',
                 'getRemoteFilesystem',
                 'setRemoteFilesystem',
             ] : [
+                'getContext',
                 'getProcessedUrl',
                 'setProcessedUrl',
             ])
@@ -312,7 +299,7 @@ class PluginTest extends TestCase
             ->method('getProcessedUrl')
             ->willReturn($processedUrl);
 
-        if ($usesRemoteFilesystem) {
+        if (self::isComposer1()) {
             $config = $this
                 ->getMockBuilder(Config::class)
                 ->getMock();
@@ -360,18 +347,70 @@ class PluginTest extends TestCase
                 ->expects($changeExpected ? $this->once() : $this->never())
                 ->method('setProcessedUrl')
                 ->with($this->equalTo($expectedUrl));
+
+            // Mock a package context
+            $package = $this
+                ->getMockBuilder(PackageInterface::class)
+                ->setMethods(['getPrettyVersion'])
+                ->getMockForAbstractClass();
+
+            $package
+                ->method('getPrettyVersion')
+                ->willReturn($version);
+
+            $event
+                ->method('getContext')
+                ->willReturn($package);
         }
 
         // Trigger plugin
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
-        $plugin->handlePreFileDownload($event);
+        $plugin->handlePreDownloadEvent($event);
+    }
+
+    protected function expectLockedDistUrl($distUrl, $version, $expectedDistUrl)
+    {
+        $changeExpected = $distUrl !== $expectedDistUrl;
+
+        // Mock a package
+        $package = $this
+            ->getMockBuilder(PackageInterface::class)
+            ->setMethods(['getDistUrl', 'getPrettyVersion', 'setDistUrl'])
+            ->getMockForAbstractClass();
+
+        $package
+            ->method('getPrettyVersion')
+            ->willReturn($version);
+
+        $package
+            ->method('getDistUrl')
+            ->willReturn($distUrl);
+
+        if ($changeExpected) {
+            $package
+                ->expects($this->exactly(2))
+                ->method('setDistUrl')
+                ->with($expectedDistUrl);
+        } else {
+            $package
+                ->expects($this->never())
+                ->method('setDistUrl');
+        }
+
+        // Test package install event
+        $plugin = new Plugin();
+        $plugin->handlePreInstallUpdateEvent($this->mockInstallEvent($package, 'install'));
+
+        // Test package update event
+        $plugin = new Plugin();
+        $plugin->handlePreInstallUpdateEvent($this->mockInstallEvent($package, 'update'));
     }
 
     protected function mockInstallEvent(
         PackageInterface $package,
-        string $jobType
-    ): PackageEvent {
+        $jobType
+    ) {
         // Mock an operation
         $operation = $this
             ->getMockBuilder(InstallOperation::class)
@@ -381,6 +420,10 @@ class PluginTest extends TestCase
                 $jobType === 'update' ? 'getTargetPackage' : 'getPackage',
             ])
             ->getMock();
+
+        $operation
+            ->method('getJobType')
+            ->willReturn($jobType);
 
         $operation
             ->expects($this->once())
@@ -395,10 +438,14 @@ class PluginTest extends TestCase
             ->getMock();
 
         $packageEvent
-            ->expects($this->once())
             ->method('getOperation')
             ->willReturn($operation);
 
         return $packageEvent;
+    }
+
+    protected static function isComposer1()
+    {
+        return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
     }
 }

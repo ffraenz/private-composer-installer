@@ -21,11 +21,11 @@
   "require": {
     "php": "^7.1",
     "composer-plugin-api": "^1.0 || ^2.0",
-    "vlucas/phpdotenv": "^4.0 || ^5.0"
+    "vlucas/phpdotenv": "^4.0"
   },
   "require-dev": {
-    "composer/composer": "1.0.*",
-    "phpunit/phpunit": "^8.0",
+    "composer/composer": "^1.0 || ^2.0",
+    "phpunit/phpunit": "^8.5",
     "laminas/laminas-coding-standard": "^1.0"
   },
   "scripts": {

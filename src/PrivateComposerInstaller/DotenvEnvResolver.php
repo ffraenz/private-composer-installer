@@ -36,7 +36,7 @@ class DotenvEnvResolver implements EnvResolverInterface
      * @param string $path Path to the directory containing the dot env file
      * @param string $name Name of the dot env file
      */
-    public function __construct(string $path, string $name = '.env')
+    public function __construct($path, $name = '.env')
     {
         $this->getenvAdapter = new PutenvAdapter();
         $this->dotenvPath = $path;
@@ -47,7 +47,7 @@ class DotenvEnvResolver implements EnvResolverInterface
      * Lazily creates an ArrayAdapter instance providing .env file variables.
      * @return ArrayAdapter
      */
-    protected function getDotenvAdapter(): ArrayAdapter
+    protected function getDotenvAdapter()
     {
         if ($this->dotenvAdapter === null) {
             $this->dotenvAdapter = new ArrayAdapter();
@@ -77,7 +77,7 @@ class DotenvEnvResolver implements EnvResolverInterface
      * @param string $key Env var key
      * @return mixed|null Env var value or null, if it is not set
      */
-    public function get(string $key)
+    public function get($key)
     {
         // Try to read variable via putenv/getenv
         return $this->getenvAdapter->get($key)
