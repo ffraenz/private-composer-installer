@@ -39,6 +39,7 @@ jobs:
       - name: "Choose PHPUnit version"
         run: |
           if [ "${{ matrix.php-version }}" = "5.6" ]; then
+            echo "COMPOSER_FLAGS=--ansi --no-interaction --no-progress --prefer-dist --ignore-platform-reqs" >>"$GITHUB_ENV"
             composer require --dev --no-update "phpunit/phpunit:5.7"
           fi
       - name: "Install dependencies using composer"
