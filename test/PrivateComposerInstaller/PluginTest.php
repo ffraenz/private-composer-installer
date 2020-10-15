@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 
 class PluginTest extends TestCase
 {
-    protected function tearDown()
+    protected function tearDown(): void
     {
         // Unset environment variables
         putenv('KEY_FOO');
