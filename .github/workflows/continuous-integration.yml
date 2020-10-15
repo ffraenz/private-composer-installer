@@ -17,7 +17,6 @@ jobs:
     strategy:
       matrix:
         php-version:
-          - "7.0"
           - "7.1"
           - "7.2"
           - "7.3"
@@ -38,9 +37,7 @@ jobs:
 
       - name: "Choose PHPUnit version"
         run: |
-          if [ "${{ matrix.php-version }}" = "7.0" ]; then
-            echo "SYMFONY_PHPUNIT_VERSION=6.5" >> $GITHUB_ENV;
-          elif [ "${{ matrix.php-version }}" = "7.1" ]; then
+          if [ "${{ matrix.php-version }}" = "7.1" ]; then
             echo "SYMFONY_PHPUNIT_VERSION=7.5" >> $GITHUB_ENV;
           else
             echo "SYMFONY_PHPUNIT_VERSION=8.5" >> $GITHUB_ENV;
