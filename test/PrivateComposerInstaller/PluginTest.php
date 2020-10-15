@@ -18,10 +18,13 @@ use FFraenz\PrivateComposerInstaller\EnvResolverInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Plugin;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\PhpUnit\SetUpTearDownTrait;
 
 class PluginTest extends TestCase
 {
-    protected function tearDown(): void
+    use SetUpTearDownTrait;
+
+    protected function doTearDown()
     {
         // Unset environment variables
         putenv('KEY_FOO');
