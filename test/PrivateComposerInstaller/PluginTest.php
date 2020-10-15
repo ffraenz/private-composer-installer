@@ -17,6 +17,7 @@ use Composer\Util\RemoteFilesystem;
 use FFraenz\PrivateComposerInstaller\EnvResolverInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Plugin;
+use PHPUnit\Framework\TestCase;
 
 class PluginTest extends TestCase
 {
