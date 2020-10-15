@@ -6,12 +6,15 @@ use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use FFraenz\PrivateComposerInstaller\RemoteFilesystem;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\PhpUnit\SetUpTearDownTrait;
 
 class RemoteFilesystemTest extends TestCase
 {
+    use SetUpTearDownTrait;
+
     protected $io;
 
-    protected function setUp()
+    protected function doSetUp()
     {
         // As of Composer 2 this class is no longer in use
         if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '>=')) {
