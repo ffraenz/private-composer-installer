@@ -6,13 +6,10 @@ on:
 
 env:
   COMPOSER_FLAGS: "--ansi --no-interaction --no-progress --prefer-dist"
-  SYMFONY_PHPUNIT_VERSION: "8.5"
 
 jobs:
   tests:
     name: "CI"
-
-    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
@@ -20,31 +17,15 @@ jobs:
           - "5.6"
           - "7.4"
         os: [ubuntu-latest]
-        include:
-          - php-version: "5.6"
-            composer-version: "v1"
-            os: ubuntu-latest
-          - php-version: "5.6"
-            composer-version: "snapshot"
-            os: ubuntu-latest
-          - php-version: "7.4"
-            composer-version: "v1"
-            os: ubuntu-latest
-          - php-version: "7.4"
-            composer-version: "snapshot"
-            os: ubuntu-latest
+        composer-version:
+          - "v1"
+          - "snapshot"
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v2"
-
-      - name: "Choose PHPUnit version"
-        run: |
-          if [ "${{ matrix.php-version }}" = "5.6" ]; then
-            echo "SYMFONY_PHPUNIT_VERSION=5.7" >> $GITHUB_ENV;
-          else
-            echo "SYMFONY_PHPUNIT_VERSION=8.5" >> $GITHUB_ENV;
-          fi
 
       - name: "Install PHP"
         uses: "shivammathur/setup-php@v2"
@@ -55,8 +36,13 @@ jobs:
           php-version: "${{ matrix.php-version }}"
           tools: "composer:${{ matrix.composer-version }}"
 
+      - name: "Choose PHPUnit version"
+        run: |
+          if [ "${{ matrix.php-version }}" = "5.6" ]; then
+            composer require --dev --no-update "phpunit/phpunit:5.7"
+          fi
       - name: "Install dependencies using composer"
-        run: "composer install ${{ env.COMPOSER_FLAGS }}"
+        run: "composer update ${{ env.COMPOSER_FLAGS }}"
 
       - name: "Run test suite"
         run: "composer test"
