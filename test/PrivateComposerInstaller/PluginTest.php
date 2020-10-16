@@ -14,7 +14,7 @@ use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use Composer\Util\RemoteFilesystem;
-use FFraenz\PrivateComposerInstaller\EnvResolverInterface;
+use FFraenz\PrivateComposerInstaller\Resolver\ResolverInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Plugin;
 use PHPUnit\Framework\TestCase;
@@ -68,24 +68,24 @@ class PluginTest extends TestCase
         $this->assertEquals($io, $plugin->getIO());
     }
 
-    public function testLazyEnvResolverInstantiation()
+    public function testLazyResolverInstantiation()
     {
         $composer = $this->createMock(Composer::class);
         $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
-        $this->assertInstanceOf(EnvResolverInterface::class, $plugin->getEnvResolver());
+        $this->assertInstanceOf(ResolverInterface::class, $plugin->getResolver());
     }
 
-    public function testSetEnvResolver()
+    public function testSetResolver()
     {
         $composer = $this->createMock(Composer::class);
         $io = $this->createMock(IOInterface::class);
-        $envResolver = $this->createMock(EnvResolverInterface::class);
+        $resolver = $this->createMock(ResolverInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
-        $plugin->setEnvResolver($envResolver);
-        $this->assertEquals($envResolver, $plugin->getEnvResolver());
+        $plugin->setResolver($resolver);
+        $this->assertEquals($resolver, $plugin->getResolver());
     }
 
     public function testSubscribesToEvents()

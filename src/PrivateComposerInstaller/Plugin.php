@@ -4,14 +4,16 @@ namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
-use Composer\IO\IOInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
+use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
+use FFraenz\PrivateComposerInstaller\Resolver\Dotenv4Resolver;
+use FFraenz\PrivateComposerInstaller\Resolver\ResolverInterface;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -26,15 +28,15 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     protected $io;
 
     /**
-     * @var EnvResolverInterface
+     * @var ResolverInterface
      */
-    protected $envResolver;
+    protected $resolver;
 
     /**
      * Return the composer instance.
      * @return Composer|null
      */
-    public function getComposer()
+    public function getComposer(): Composer
     {
         return $this->composer;
     }
@@ -43,31 +45,31 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Return the IO interface object.
      * @return IOInterface|null
      */
-    public function getIO()
+    public function getIO(): IOInterface
     {
         return $this->io;
     }
 
     /**
-     * Lazily instantiate an env resolver instance.
-     * @return EnvResolverInterface
+     * Lazily instantiate the root resolver instance.
+     * @return ResolverInterface
      */
-    public function getEnvResolver(): EnvResolverInterface
+    public function getResolver(): ResolverInterface
     {
-        if ($this->envResolver === null) {
-            $this->envResolver = new DotenvEnvResolver(getcwd(), '.env');
+        if ($this->resolver === null) {
+            $this->resolver = new Dotenv4Resolver();
         }
-        return $this->envResolver;
+        return $this->resolver;
     }
 
     /**
-     * Set the env resolver instance.
-     * @param EnvResolverInterface $envResolver Env resolver instance
+     * Set the resolver instance.
+     * @param ResolverInterface $resolver Resolver instance
      * @return void
      */
-    public function setEnvResolver(EnvResolverInterface $envResolver)
+    public function setResolver(ResolverInterface $resolver)
     {
-        $this->envResolver = $envResolver;
+        $this->resolver = $resolver;
     }
 
     /**
@@ -116,7 +118,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param PackageEvent $event Composer install or update event
      * @return void
      */
-    public function handlePreInstallUpdateEvent(PackageEvent $event)
+    public function handlePreInstallUpdateEvent(PackageEvent $event): void
     {
         $operation = $event->getOperation();
         $package = $operation->getJobType() === 'update'
@@ -138,7 +140,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param PreFileDownloadEvent $event Composer event
      * @return void
      */
-    public function handlePreDownloadEvent(PreFileDownloadEvent $event)
+    public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
     {
         $filteredProcessedUrl = $processedUrl = $event->getProcessedUrl();
 
@@ -207,7 +209,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param string|null $url Processed URL
      * @return Filtered processed URL
      */
-    public function fulfillPlaceholders($url)
+    public function fulfillPlaceholders($url): array
     {
         $placeholders = $this->identifyPlaceholders($url);
         if (count($placeholders) > 0) {
@@ -248,13 +250,13 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Resolve environment value by the given key.
-     * @param string $key Env key
+     * @param string $key Environment key
      * @throws MissingEnvException If the given key cannot be resolved.
-     * @return Env value
+     * @return Environment value
      */
     public function resolveEnvValue($key)
     {
-        $value = $this->getEnvResolver()->get($key);
+        $value = $this->getResolver()->get($key);
         if (empty($value) || ! is_string($value)) {
             throw new MissingEnvException($key);
         }
@@ -265,7 +267,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Test if this plugin runs within Composer 2.
      * @return boolean True, if Composer 2 or later is in use
      */
-    protected static function isComposer1()
+    protected static function isComposer1(): bool
     {
         return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
     }
