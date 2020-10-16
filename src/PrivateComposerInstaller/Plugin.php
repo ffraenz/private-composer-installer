@@ -36,7 +36,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Return the composer instance.
      * @return Composer|null
      */
-    public function getComposer(): Composer
+    public function getComposer(): ?Composer
     {
         return $this->composer;
     }
@@ -45,7 +45,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Return the IO interface object.
      * @return IOInterface|null
      */
-    public function getIO(): IOInterface
+    public function getIO(): ?IOInterface
     {
         return $this->io;
     }
@@ -209,7 +209,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param string|null $url Processed URL
      * @return Filtered processed URL
      */
-    public function fulfillPlaceholders($url): array
+    public function fulfillPlaceholders($url)
     {
         $placeholders = $this->identifyPlaceholders($url);
         if (count($placeholders) > 0) {
@@ -227,7 +227,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param ?string $url
      * @return string[]
      */
-    public function identifyPlaceholders($url)
+    public function identifyPlaceholders($url): array
     {
         if (empty($url)) {
             return [];
