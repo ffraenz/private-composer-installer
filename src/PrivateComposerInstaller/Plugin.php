@@ -13,6 +13,7 @@ use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Resolver\Dotenv4Resolver;
+use FFraenz\PrivateComposerInstaller\Resolver\Dotenv5Resolver;
 use FFraenz\PrivateComposerInstaller\Resolver\ResolverInterface;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
@@ -57,7 +58,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     public function getResolver(): ResolverInterface
     {
         if ($this->resolver === null) {
-            $this->resolver = new Dotenv4Resolver();
+            // Load resolver depending on installed vlucas/phpdotenv version
+            if (method_exists(\Dotenv\Repository\Adapter\ArrayAdapter::class, 'create')) {
+                $this->resolver = new Dotenv5Resolver();
+            } else {
+                $this->resolver = new Dotenv4Resolver();
+            }
         }
         return $this->resolver;
     }

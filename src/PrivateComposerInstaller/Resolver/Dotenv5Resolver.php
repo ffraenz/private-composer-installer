@@ -4,12 +4,13 @@ namespace FFraenz\PrivateComposerInstaller\Resolver;
 
 use Dotenv\Exception\InvalidPathException;
 use Dotenv\Loader\Loader;
+use Dotenv\Parser\Parser;
 use Dotenv\Repository\Adapter\ArrayAdapter;
 use Dotenv\Repository\Adapter\PutenvAdapter;
 use Dotenv\Repository\RepositoryBuilder;
 use Dotenv\Store\StoreBuilder;
 
-class Dotenv4Resolver implements ResolverInterface
+class Dotenv5Resolver implements ResolverInterface
 {
     /**
      * @var ArrayAdapter
@@ -47,7 +48,7 @@ class Dotenv4Resolver implements ResolverInterface
     protected function getPutenvAdapter(): PutenvAdapter
     {
         if ($this->putenvAdapter === null) {
-            $this->putenvAdapter = new PutenvAdapter();
+            $this->putenvAdapter = PutenvAdapter::create()->get();
         }
         return $this->putenvAdapter;
     }
@@ -59,21 +60,23 @@ class Dotenv4Resolver implements ResolverInterface
     protected function getDotenvAdapter(): ArrayAdapter
     {
         if ($this->dotenvAdapter === null) {
-            $this->dotenvAdapter = new ArrayAdapter();
+            $this->dotenvAdapter = ArrayAdapter::create()->get();
 
             try {
-                $repository = RepositoryBuilder::create()
-                    ->withReaders([])
-                    ->withWriters([$this->dotenvAdapter])
+                $repository = RepositoryBuilder::createWithNoAdapters()
+                    ->addWriter($this->dotenvAdapter)
                     ->make();
 
-                $fileStore = StoreBuilder::create()
-                    ->withPaths([$this->dotenvPath])
-                    ->withNames([$this->dotenvName])
+                $fileStore = StoreBuilder::createWithNoNames()
+                    ->addPath($this->dotenvPath)
+                    ->addName($this->dotenvName)
                     ->make();
+
+                $parser = new Parser();
+                $entries = $parser->parse($fileStore->read());
 
                 $loader = new Loader();
-                $loader->load($repository, $fileStore->read());
+                $loader->load($repository, $entries);
             } catch (InvalidPathException $e) {
                 // Environment variables could not be loaded
                 // Continue with empty array adapter
@@ -89,9 +92,9 @@ class Dotenv4Resolver implements ResolverInterface
      */
     public function get(string $key)
     {
-        return $this->getPutenvAdapter()->get($key)
+        return $this->getPutenvAdapter()->read($key)
             ->getOrCall(function () use ($key) {
-                return $this->getDotenvAdapter()->get($key)
+                return $this->getDotenvAdapter()->read($key)
                     ->getOrCall(function () use ($key) {
                         return null;
                     });
