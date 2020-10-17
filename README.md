@@ -120,7 +120,7 @@ This package heavily depends on [vlucas/phpdotenv](https://github.com/vlucas/php
 
 | `vlucas/phpdotenv` | `private-composer-installer` |
 | ------------------ | ---------------------------- |
-| `^4.2`, `^5.0`     | `^5.0`                       |
+| `^4.1`, `^5.2`     | `^5.0`                       |
 | `^4.0`             | `^4.0`                       |
 | `^3.0`             | `^3.0`, `^2.0`               |
 | `^2.2`             | `^1.0`                       |
