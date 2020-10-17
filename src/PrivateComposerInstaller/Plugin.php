@@ -205,7 +205,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     /**
      * Fulfill package URL placeholders before downloading the package.
      *
-     * @param \Composer\Installer\PreFileDownloadEvent $event
+     * @param \Composer\Plugin\PreFileDownloadEvent $event
      *
      * @return void
      */
