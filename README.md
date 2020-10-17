@@ -70,12 +70,6 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
       "johnpbloch/wordpress" : "^5.0",
       "composer/installers": "^1.4",
       "ffraenz/private-composer-installer": "^5.0"
-    },
-    "extra": {
-      "private-composer-installer": {
-        "dotenv-path": "../",
-        "dotenv-name": ".env.secret"
-      }
     }
   }
 }
@@ -99,9 +93,11 @@ The configuration options listed below may be added to the root configuration in
 
 ```json
 {
-  // ...
+  "name": "...",
+  "description": "...",
+  "require": {
+  },
   "extra": {
-    // ...
     "private-composer-installer": {
       "dotenv-path": ".",
       "dotenv-name": ".env"
@@ -112,9 +108,7 @@ The configuration options listed below may be added to the root configuration in
 
 ### dotenv-path
 
-Path relative to the root package (where `composer.json` is located)
-where to lookup dotenv files. By default dotenv files are expected to be in the
-root package folder or in any of the parent folders.
+Dotenv file directory relative to the root package (where `composer.json` is located). By default dotenv files are expected to be in the root package folder or in any of the parent folders.
 
 ### dotenv-name
 
