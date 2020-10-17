@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Composer;
@@ -11,31 +13,36 @@ use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
-use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
-use FFraenz\PrivateComposerInstaller\Resolver\Dotenv4Resolver;
-use FFraenz\PrivateComposerInstaller\Resolver\Dotenv5Resolver;
-use FFraenz\PrivateComposerInstaller\Resolver\ResolverInterface;
+use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
+use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
+use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
     /**
-     * @var Composer
+     * @var \Composer\Composer|null
      */
     protected $composer;
 
     /**
-     * @var IOInterface
+     * @var \Composer\IO\IOInterface|null
      */
     protected $io;
 
     /**
-     * @var ResolverInterface
+     * @var \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface|null
      */
-    protected $resolver;
+    protected $loader;
+
+    /**
+     * @var \FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface|null
+     */
+    protected $repository;
 
     /**
      * Return the composer instance.
-     * @return Composer|null
+     *
+     * @return \Composer\Composer|null
      */
     public function getComposer(): ?Composer
     {
@@ -44,7 +51,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Return the IO interface object.
-     * @return IOInterface|null
+     *
+     * @return \Composer\IO\IOInterface|null
      */
     public function getIO(): ?IOInterface
     {
@@ -52,30 +60,46 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Lazily instantiate the root resolver instance.
-     * @return ResolverInterface
+     * Set the environment variable loader instance.
+     *
+     * @param \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface $loader
+     *
+     * @return void
      */
-    public function getResolver(): ResolverInterface
+    public function setEnvironmentLoader(LoaderInterface $loader): void
     {
-        if ($this->resolver === null) {
-            // Load resolver depending on installed vlucas/phpdotenv version
-            if (method_exists(\Dotenv\Repository\Adapter\ArrayAdapter::class, 'create')) {
-                $this->resolver = new Dotenv5Resolver();
-            } else {
-                $this->resolver = new Dotenv4Resolver();
-            }
-        }
-        return $this->resolver;
+        $this->loader = $loader;
+        $this->repository = null;
     }
 
     /**
-     * Set the resolver instance.
-     * @param ResolverInterface $resolver Resolver instance
-     * @return void
+     * Get the environment variable loader instance.
+     *
+     * @return \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface
      */
-    public function setResolver(ResolverInterface $resolver)
+    public function getEnvironmentLoader(): LoaderInterface
     {
-        $this->resolver = $resolver;
+        if ($this->loader === null) {
+            $this->loader = LoaderFactory::create();
+        }
+
+        return $this->loader;
+    }
+
+    /**
+     * Load and return the environment repository.
+     *
+     * If the repository has already been loaded, this is not repeated.
+     *
+     * @return \FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface
+     */
+    public function getEnvironmentRepository(): RepositoryInterface
+    {
+        if ($this->repository === null) {
+            $this->repository = $this->getEnvironmentLoader()->load();
+        }
+
+        return $this->repository;
     }
 
     /**
@@ -120,8 +144,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Handle PRE_PACKAGE_INSTALL and PRE_PACKAGE_UPDATE Composer events.
+     *
      * Only gets triggered running Composer 1.
-     * @param PackageEvent $event Composer install or update event
+     *
+     * @param \Composer\Installer\PackageEvent $event
+     *
      * @return void
      */
     public function handlePreInstallUpdateEvent(PackageEvent $event): void
@@ -143,7 +170,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Fulfill package URL placeholders before downloading the package.
-     * @param PreFileDownloadEvent $event Composer event
+     *
+     * @param \Composer\Installer\PreFileDownloadEvent $event
+     *
      * @return void
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
@@ -184,17 +213,21 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Filter the dist URL for a given package. Filtered dist URLs get stored
-     * inside `composer.lock`.
-     * @param string|null $url Dist URL
-     * @param string $version Package version
-     * @return Filtered dist URL
+     * Filter the dist URL for a given package.
+     *
+     * Filtered dist URLs get stored inside `composer.lock`.
+     *
+     * @param string|null $url
+     * @param string|null $version
+     *
+     * @return ?string
      */
-    public function fulfillVersionPlaceholder($url, $version)
+    public function fulfillVersionPlaceholder(?string $url, ?string $version)
     {
         // Check if package dist url contains any placeholders (incl. version)
         $placeholders = $this->identifyPlaceholders($url);
-        if (count($placeholders) > 0) {
+
+        if (count($placeholders) > 0 && $version !== null) {
             // Inject version into URL
             if (array_search('version', $placeholders) !== false) {
                 // If there is a version placeholder in the URL, fulfill it
@@ -206,34 +239,40 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 $url .= '#v' . $version;
             }
         }
+
         return $url;
     }
 
     /**
-     * Filter the given processed URL before downloading. Filtered processed
-     * URLs do not get stored inside `composer.lock`.
-     * @param string|null $url Processed URL
-     * @return Filtered processed URL
+     * Filter the given processed URL before downloading.
+     *
+     * Filtered processed URLs do not get stored inside `composer.lock`.
+     *
+     * @param string|null $url
+     *
+     * @return string|null
      */
-    public function fulfillPlaceholders($url)
+    public function fulfillPlaceholders(?string $url): ?string
     {
         $placeholders = $this->identifyPlaceholders($url);
-        if (count($placeholders) > 0) {
-            // Replace each placeholder with env var
-            foreach ($placeholders as $placeholder) {
-                $value = $this->resolveEnvValue($placeholder);
-                $url = str_replace('{%' . $placeholder . '}', $value, $url);
-            }
+
+        // Replace each placeholder with env var
+        foreach ($placeholders as $placeholder) {
+            $value = $this->getEnvironmentRepository()->get($placeholder);
+            $url = str_replace('{%' . $placeholder . '}', $value, $url);
         }
+ 
         return $url;
     }
 
     /**
-     * Retrieve placeholders for the given url.
-     * @param ?string $url
+     * Retrieve placeholders for the given URL.
+     *
+     * @param string|null $url
+     *
      * @return string[]
      */
-    public function identifyPlaceholders($url): array
+    public function identifyPlaceholders(?string $url): array
     {
         if (empty($url)) {
             return [];
@@ -255,23 +294,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Resolve environment value by the given key.
-     * @param string $key Environment key
-     * @throws MissingEnvException If the given key cannot be resolved.
-     * @return Environment value
-     */
-    public function resolveEnvValue($key)
-    {
-        $value = $this->getResolver()->get($key);
-        if (empty($value) || ! is_string($value)) {
-            throw new MissingEnvException($key);
-        }
-        return $value;
-    }
-
-    /**
      * Test if this plugin runs within Composer 2.
-     * @return boolean True, if Composer 2 or later is in use
+     *
+     * @return bool
      */
     protected static function isComposer1(): bool
     {
