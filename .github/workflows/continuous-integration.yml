@@ -2,10 +2,6 @@ name: "Continuous Integration"
 
 on: [push, pull_request]
 
-env:
-  COMPOSER_FLAGS: "--ansi --no-interaction --no-progress --prefer-dist"
-  SYMFONY_PHPUNIT_VERSION: "8.5"
-
 jobs:
   tests:
     name: "CI"
@@ -19,48 +15,60 @@ jobs:
           - "7.2"
           - "7.3"
           - "7.4"
-        composer-version: ["v1"]
-        phpdotenv-version: ["^4.0"]
+          - "8.0"
+        composer-version: ["v2"]
+        phpdotenv-version: ["^4.1", "^5.2"]
         include:
-          - php-version: "7.4"
+          - php-version: "7.1"
             composer-version: "v1"
-            phpdotenv-version: "^4.0"
-          - php-version: "7.4"
+            phpdotenv-version: "^4.1"
+          - php-version: "7.1"
             composer-version: "v1"
-            phpdotenv-version: "^5.0"
-          - php-version: "7.4"
-            composer-version: "snapshot"
-            phpdotenv-version: "^4.0"
-          - php-version: "7.4"
-            composer-version: "snapshot"
-            phpdotenv-version: "^5.0"
+            phpdotenv-version: "^5.2"
 
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v2"
 
-      - name: "Choose PHPUnit version"
-        run: |
-          if [ "${{ matrix.php-version }}" = "7.1" ]; then
-            echo "SYMFONY_PHPUNIT_VERSION=7.5" >> $GITHUB_ENV;
-          else
-            echo "SYMFONY_PHPUNIT_VERSION=8.5" >> $GITHUB_ENV;
-          fi
-
       - name: "Install PHP"
         uses: "shivammathur/setup-php@v2"
         with:
           coverage: "none"
-          extensions: "intl, zip"
-          ini-values: "memory_limit=-1, phar.readonly=0"
           php-version: "${{ matrix.php-version }}"
           tools: "composer:${{ matrix.composer-version }}"
 
-      - name: "Install dependencies using composer"
-        run: "composer install ${{ env.COMPOSER_FLAGS }}"
+      - name: "Choose PHPUnit version"
+        run: |
+          if [ "${{ matrix.php-version }}" = "7.1" ]; then
+            echo "SYMFONY_PHPUNIT_VERSION=7.5" >> $GITHUB_ENV;
+          elif [ "${{ matrix.php-version }}" = "8.0" ]; then
+            echo "SYMFONY_PHPUNIT_VERSION=9.4" >> $GITHUB_ENV;
+          else
+            echo "SYMFONY_PHPUNIT_VERSION=8.5" >> $GITHUB_ENV;
+          fi
 
-      - name: "Switch to specified vlucas/phpdotenv version"
-        run: "composer require vlucas/phpdotenv:${{ matrix.phpdotenv-version }} ${{ env.COMPOSER_FLAGS }}"
+      - name: "Choose PHP Dotenv version"
+        uses: nick-invision/retry@v1
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer require "vlucas/phpdotenv:${{ matrix.phpdotenv-version }}" --no-update --no-interaction
+
+      - name: Install PHP 7 dependencies
+        uses: nick-invision/retry@v1
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer update --prefer-dist --no-interaction --no-progress
+        if: "matrix.php-version < 8"
+
+      - name: Install PHP 8 dependencies
+        uses: nick-invision/retry@v1
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer update --prefer-dist --no-interaction --no-progress --ignore-platform-req=php
+        if: "matrix.php-version >= 8"
 
       - name: "Run test suite"
         run: "composer test"

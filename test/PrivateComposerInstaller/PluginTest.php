@@ -14,7 +14,7 @@ use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
 use Composer\Util\RemoteFilesystem;
-use FFraenz\PrivateComposerInstaller\Resolver\ResolverInterface;
+use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Plugin;
 use PHPUnit\Framework\TestCase;
@@ -24,8 +24,8 @@ class PluginTest extends TestCase
     protected function tearDown(): void
     {
         // Unset environment variables
-        putenv('KEY_FOO');
-        putenv('KEY_BAR');
+        unset($_SERVER['KEY_FOO']);
+        unset($_SERVER['KEY_BAR']);
 
         // Remove dot env file
         $dotenv = getcwd() . DIRECTORY_SEPARATOR . '.env';
@@ -68,24 +68,24 @@ class PluginTest extends TestCase
         $this->assertEquals($io, $plugin->getIO());
     }
 
-    public function testLazyResolverInstantiation()
+    public function testLazyEnvironmentLoaderInstantiation()
     {
         $composer = $this->createMock(Composer::class);
         $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
-        $this->assertInstanceOf(ResolverInterface::class, $plugin->getResolver());
+        $this->assertInstanceOf(LoaderInterface::class, $plugin->getEnvironmentLoader());
     }
 
-    public function testSetResolver()
+    public function testSetEnvironmentLoader()
     {
         $composer = $this->createMock(Composer::class);
         $io = $this->createMock(IOInterface::class);
-        $resolver = $this->createMock(ResolverInterface::class);
+        $loader = $this->createMock(LoaderInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
-        $plugin->setResolver($resolver);
-        $this->assertEquals($resolver, $plugin->getResolver());
+        $plugin->setEnvironmentLoader($loader);
+        $this->assertEquals($loader, $plugin->getEnvironmentLoader());
     }
 
     public function testSubscribesToEvents()
@@ -112,7 +112,7 @@ class PluginTest extends TestCase
         if (! self::isComposer1()) {
             $this->markTestSkipped();
         }
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectLockedDistUrl(
             null,
             '1.2.3',
@@ -125,7 +125,7 @@ class PluginTest extends TestCase
         if (! self::isComposer1()) {
             $this->markTestSkipped();
         }
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectLockedDistUrl(
             'https://example.com/download',
             '1.2.3',
@@ -138,7 +138,7 @@ class PluginTest extends TestCase
         if (! self::isComposer1()) {
             $this->markTestSkipped();
         }
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectLockedDistUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
             '1.2.3',
@@ -151,7 +151,7 @@ class PluginTest extends TestCase
         if (! self::isComposer1()) {
             $this->markTestSkipped();
         }
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectLockedDistUrl(
             'https://example.com/d?key={%KEY_FOO}',
             '1.2.3',
@@ -164,7 +164,7 @@ class PluginTest extends TestCase
         if (! self::isComposer1()) {
             $this->markTestSkipped();
         }
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectLockedDistUrl(
             'https://example.com/r/{%VerSion}/d?key={%KEY_FOO}',
             '1.2.3',
@@ -197,7 +197,7 @@ class PluginTest extends TestCase
 
     public function testInjectsSinglePlaceholderFromEnv()
     {
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
             '1.2.3',
@@ -207,7 +207,7 @@ class PluginTest extends TestCase
 
     public function testInjectsSinglePlaceholderMultipleTimes()
     {
-        putenv('KEY_FOO=TEST');
+        $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&confirm={%KEY_FOO}',
             '1.2.3',
@@ -217,8 +217,8 @@ class PluginTest extends TestCase
 
     public function testInjectsMultiplePlaceholdersFromEnv()
     {
-        putenv('KEY_FOO=Hello');
-        putenv('KEY_BAR=World');
+        $_SERVER['KEY_FOO'] = 'Hello';
+        $_SERVER['KEY_BAR'] = 'World';
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
             '1.2.3',
@@ -241,7 +241,7 @@ class PluginTest extends TestCase
 
     public function testPrefersVariableFromEnv()
     {
-        putenv('KEY_BAR=YAY');
+        $_SERVER['KEY_BAR'] = 'YAY';
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
             'KEY_FOO=YAY' . PHP_EOL . 'KEY_BAR=NAY' . PHP_EOL
@@ -264,7 +264,7 @@ class PluginTest extends TestCase
             '1.2.3',
             'https://example.com/r/1.2.3/d?foo=YAY'
         );
-        $this->assertEquals(null, getenv('KEY_FOO'));
+        $this->assertFalse(isset($_SERVER['KEY_FOO']));
     }
 
     protected function expectProcessedUrl($processedUrl, $version, $expectedUrl)
