@@ -213,8 +213,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     {
         $filteredProcessedUrl = $processedUrl = $event->getProcessedUrl();
 
-        if (! self::isComposer1()) {
-            // Fulfill version placeholder
+        if (! self::isComposer1() && $event->getType() === 'package') {
+            // Fulfill version placeholder for packages
             // In Composer 1 this step is done upon package install & update
             $package = $event->getContext();
             $version = $package->getPrettyVersion();

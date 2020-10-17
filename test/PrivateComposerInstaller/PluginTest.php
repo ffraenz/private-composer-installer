@@ -196,7 +196,32 @@ class PluginTest extends TestCase
         );
     }
 
-    public function testInjectsSinglePlaceholderFromEnv()
+    public function testFulfillProcessedUrlWithPlaceholderOnly()
+    {
+        if (self::isComposer1()) {
+            $this->markTestSkipped();
+        }
+        $_SERVER['SECRET_URL'] = 'https://example.com/r/';
+        $this->expectProcessedUrl(
+            '{%SECRET_URL}',
+            '1.2.3',
+            'https://example.com/r/#1.2.3'
+        );
+    }
+
+    public function testFulfillVersionPlaceholderOnly()
+    {
+        if (self::isComposer1()) {
+            $this->markTestSkipped();
+        }
+        $this->expectProcessedUrl(
+            'https://example.com/r/{%VERSION}/d',
+            '1.2.3',
+            'https://example.com/r/1.2.3/d'
+        );
+    }
+
+    public function testFulfillSinglePlaceholderFromEnv()
     {
         $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectProcessedUrl(
@@ -206,7 +231,7 @@ class PluginTest extends TestCase
         );
     }
 
-    public function testInjectsSinglePlaceholderMultipleTimes()
+    public function testFulfillSinglePlaceholderMultipleTimes()
     {
         $_SERVER['KEY_FOO'] = 'TEST';
         $this->expectProcessedUrl(
@@ -216,7 +241,7 @@ class PluginTest extends TestCase
         );
     }
 
-    public function testInjectsMultiplePlaceholdersFromEnv()
+    public function testFulfillMultiplePlaceholdersFromEnv()
     {
         $_SERVER['KEY_FOO'] = 'Hello';
         $_SERVER['KEY_BAR'] = 'World';
@@ -227,7 +252,21 @@ class PluginTest extends TestCase
         );
     }
 
-    public function testInjectsMultiplePlaceholdersFromDotenvFile()
+    public function testFulfillVersionAndMultiplePlaceholdersFromEnv()
+    {
+        if (self::isComposer1()) {
+            $this->markTestSkipped();
+        }
+        $_SERVER['KEY_FOO'] = 'Hello';
+        $_SERVER['KEY_BAR'] = 'World';
+        $this->expectProcessedUrl(
+            'https://example.com/r/{%VERSION}/d?key={%KEY_FOO}&secret={%KEY_BAR}',
+            '1.2.3',
+            'https://example.com/r/1.2.3/d?key=Hello&secret=World'
+        );
+    }
+
+    public function testFulfillMultiplePlaceholdersFromDotenvFile()
     {
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
@@ -278,18 +317,23 @@ class PluginTest extends TestCase
             ->setMethods(self::isComposer1() ? [
                 'getProcessedUrl',
                 'getRemoteFilesystem',
+                'getType',
                 'setRemoteFilesystem',
             ] : [
                 'getContext',
                 'getProcessedUrl',
+                'getType',
                 'setProcessedUrl',
             ])
             ->getMock();
 
         $event
-            ->expects($this->once())
             ->method('getProcessedUrl')
             ->willReturn($processedUrl);
+
+        $event
+            ->method('getType')
+            ->willReturn('package');
 
         if (self::isComposer1()) {
             $options = ['options' => 'array'];
