@@ -30,6 +30,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     protected $io;
 
     /**
+     * @var array|null
+     */
+    protected $config;
+
+    /**
      * @var \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface|null
      */
     protected $loader;
@@ -60,6 +65,32 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
+     * Return the config value for the given key.
+     *
+     * Returns the entire root config array, if key is set to null.
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
+    public function getConfig(?string $key)
+    {
+        if ($this->config === null) {
+            $this->config = [
+                'dotenv-path' => null,
+                'dotenv-name' => null,
+            ];
+
+            $rootPackage = $this->getComposer()->getPackage();
+            $extra = $rootPackage->getExtra();
+            $config = $extra['private-composer-installer'] ?? [];
+            $this->config = array_merge($this->config, $config);
+        }
+
+        return $key !== null ? ($this->config[$key] ?? null) : $this->config;
+    }
+
+    /**
      * Set the environment variable loader instance.
      *
      * @param \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface $loader
@@ -80,7 +111,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     public function getEnvironmentLoader(): LoaderInterface
     {
         if ($this->loader === null) {
-            $this->loader = LoaderFactory::create();
+            $this->loader = LoaderFactory::create(
+                $this->getConfig('dotenv-path'),
+                $this->getConfig('dotenv-name')
+            );
         }
 
         return $this->loader;
@@ -261,7 +295,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             $value = $this->getEnvironmentRepository()->get($placeholder);
             $url = str_replace('{%' . $placeholder . '}', $value, $url);
         }
- 
+
         return $url;
     }
 

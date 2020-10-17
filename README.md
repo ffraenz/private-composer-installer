@@ -10,16 +10,17 @@ This is a [Composer](https://getcomposer.org/) plugin offering a way to referenc
 
 ## Quick overview
 
-- When installing or updating a package, the dist URL `{%VERSION}` placeholder gets replaced by the version set in the package. The versioned dist URL is added to `composer.lock`.
+- When installing or updating a package, the dist URL `{%VERSION}` placeholder gets replaced by the version set in the package. In Composer 1 the versioned dist URL is added to `composer.lock`.
 - Before downloading the package, `{%VARIABLE}` formatted placeholders get replaced by their corresponding env variables in the dist URL. Env vars will never be stored inside `composer.lock`.
-- If an env variable is not set for the given placeholder the plugin trys to read it from the `.env` file using [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv). If it can't be resolved a `MissingEnvException` gets thrown.
+- If an env variable is not available for the given placeholder the plugin trys to read it from the `.env` file in the working directory or in one of the parent directories. The `.env` file gets parsed by [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv).
+- If an env variable can't be resolved a `MissingEnvException` gets thrown.
 - Package dist URLs with no `{%VARIABLE}` formatted placeholders get ignored by this plugin.
 
 ## Examples
 
 ### Arbitrary private package
 
-Add the desired private package to the `repositories` field inside `composer.json`. In this example the entire dist URL of the package will be replaced by an environment variable. Find more about composer repositories in the [composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories).
+Add the desired private package to the `repositories` field inside `composer.json`. Find more about composer repositories in the [composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories). Replace the version as well as other sensitive tokens by `{%VARIABLE}` placeholders.
 
 ```json
 {
@@ -32,7 +33,7 @@ Add the desired private package to the `repositories` field inside `composer.jso
       "url": "https://example.com/package-name.zip?key={%PACKAGE_KEY}&version={%VERSION}"
     },
     "require": {
-      "ffraenz/private-composer-installer": "^4.0"
+      "ffraenz/private-composer-installer": "^5.0"
     }
   }
 }
@@ -66,8 +67,15 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
       "url": "https://connect.advancedcustomfields.com/index.php?a=download&p=pro&k={%PLUGIN_ACF_KEY}&t={%VERSION}"
     },
     "require": {
+      "johnpbloch/wordpress" : "^5.0",
       "composer/installers": "^1.4",
-      "ffraenz/private-composer-installer": "^4.0"
+      "ffraenz/private-composer-installer": "^5.0"
+    },
+    "extra": {
+      "private-composer-installer": {
+        "dotenv-path": "../",
+        "dotenv-name": ".env.secret"
+      }
     }
   }
 }
@@ -85,12 +93,40 @@ Let Composer require ACF Pro:
 composer require "advanced-custom-fields/advanced-custom-fields-pro:*"
 ```
 
-## Versions
+## Configuration
+
+The configuration options listed below may be added to the root configuration in `composer.json` like so:
+
+```json
+{
+  // ...
+  "extra": {
+    // ...
+    "private-composer-installer": {
+      "dotenv-path": ".",
+      "dotenv-name": ".env"
+    }
+  }
+}
+```
+
+### dotenv-path
+
+Path relative to the root package (where `composer.json` is located)
+where to lookup dotenv files. By default dotenv files are expected to be in the
+root package folder or in any of the parent folders.
+
+### dotenv-name
+
+Dotenv file name. Defaults to `.env`.
+
+## Dependencies
 
 This package heavily depends on [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv) to load environment variables "automagically". This may cause version conflicts if your project already depends on it. Refer to this table to set the version of `private-composer-installer` accordingly or consider upgrading.
 
 | `vlucas/phpdotenv` | `private-composer-installer` |
 | ------------------ | ---------------------------- |
+| `^4.2`, `^5.0`     | `^5.0`                       |
 | `^4.0`             | `^4.0`                       |
 | `^3.0`             | `^3.0`, `^2.0`               |
 | `^2.2`             | `^1.0`                       |

@@ -10,6 +10,7 @@ use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
+use Composer\Package\RootPackage;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
@@ -46,7 +47,7 @@ class PluginTest extends TestCase
 
     public function testActivateAndDeactivateSetsAndClearsComposerAndIO()
     {
-        $composer = $this->createMock(Composer::class);
+        $composer = $this->createComposerMock();
         $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
@@ -60,7 +61,7 @@ class PluginTest extends TestCase
 
     public function testDeactivateClearsComposerAndIO()
     {
-        $composer = $this->createMock(Composer::class);
+        $composer = $this->createComposerMock();
         $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
@@ -70,7 +71,7 @@ class PluginTest extends TestCase
 
     public function testLazyEnvironmentLoaderInstantiation()
     {
-        $composer = $this->createMock(Composer::class);
+        $composer = $this->createComposerMock();
         $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
@@ -79,7 +80,7 @@ class PluginTest extends TestCase
 
     public function testSetEnvironmentLoader()
     {
-        $composer = $this->createMock(Composer::class);
+        $composer = $this->createComposerMock();
         $io = $this->createMock(IOInterface::class);
         $loader = $this->createMock(LoaderInterface::class);
         $plugin = new Plugin();
@@ -271,15 +272,6 @@ class PluginTest extends TestCase
     {
         $changeExpected = $processedUrl !== $expectedUrl;
 
-        $composer = $this
-            ->getMockBuilder(Composer::class)
-            ->setMethods(['getConfig'])
-            ->getMock();
-
-        $io = $this
-            ->getMockBuilder(IOInterface::class)
-            ->getMock();
-
         $event = $this
             ->getMockBuilder(PreFileDownloadEvent::class)
             ->disableOriginalConstructor()
@@ -300,14 +292,6 @@ class PluginTest extends TestCase
             ->willReturn($processedUrl);
 
         if (self::isComposer1()) {
-            $config = $this
-                ->getMockBuilder(Config::class)
-                ->getMock();
-
-            $composer
-                ->method('getConfig')
-                ->willReturn($config);
-
             $options = ['options' => 'array'];
             $tlsDisabled = true;
             $rfs = $this
@@ -363,7 +347,8 @@ class PluginTest extends TestCase
                 ->willReturn($package);
         }
 
-        // Trigger plugin
+        $composer = $this->createComposerMock();
+        $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
         $plugin->activate($composer, $io);
         $plugin->handlePreDownloadEvent($event);
@@ -398,16 +383,52 @@ class PluginTest extends TestCase
                 ->method('setDistUrl');
         }
 
-        // Test package install event
+        // Activate plugin
+        $composer = $this->createComposerMock();
+        $io = $this->createMock(IOInterface::class);
         $plugin = new Plugin();
-        $plugin->handlePreInstallUpdateEvent($this->mockInstallEvent($package, 'install'));
+        $plugin->activate($composer, $io);
+
+        // Test package install event
+        $event = $this->createInstallEventMock($package, 'install');
+        $plugin->handlePreInstallUpdateEvent($event);
 
         // Test package update event
-        $plugin = new Plugin();
-        $plugin->handlePreInstallUpdateEvent($this->mockInstallEvent($package, 'update'));
+        $event = $this->createInstallEventMock($package, 'update');
+        $plugin->handlePreInstallUpdateEvent($event);
     }
 
-    protected function mockInstallEvent(
+    protected function createComposerMock()
+    {
+        $rootPackage = $this
+            ->getMockBuilder(RootPackage::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getExtra'])
+            ->getMock();
+
+        $rootPackage
+            ->method('getExtra')
+            ->willReturn([]);
+
+        $composer = $this
+            ->getMockBuilder(Composer::class)
+            ->setMethods(['getConfig', 'getPackage'])
+            ->getMock();
+
+        $composer
+            ->method('getPackage')
+            ->willReturn($rootPackage);
+
+        $config = $this->createMock(Config::class);
+
+        $composer
+            ->method('getConfig')
+            ->willReturn($config);
+
+        return $composer;
+    }
+
+    protected function createInstallEventMock(
         PackageInterface $package,
         $jobType
     ) {

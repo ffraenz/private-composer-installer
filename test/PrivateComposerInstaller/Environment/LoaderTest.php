@@ -31,9 +31,13 @@ class LoaderTest extends TestCase
      */
     public function testCanLoadParentFile()
     {
-        $repo = LoaderFactory::create(__DIR__.'/../../stubs/foo/bar')->load();
+        $cwd = getcwd();
+        chdir(__DIR__.'/../../stubs/foo/bar');
+        $repo = LoaderFactory::create()->load();
         self::assertSame('Hi', $repo->get('FOO_VAR'));
+        chdir($cwd);
     }
+
     /**
      * @depends testCanCreateAndLoad
      */

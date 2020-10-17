@@ -25,6 +25,9 @@ jobs:
           - php-version: "7.1"
             composer-version: "v1"
             phpdotenv-version: "^5.2"
+          - php-version: "7.4"
+            composer-version: "snapshot"
+            phpdotenv-version: "^5.2"
 
     steps:
       - name: "Checkout"

@@ -52,5 +52,5 @@ abstract class AbstractDotenvLoader implements LoaderInterface
      *
      * @return \Dotenv\Repository\RepositoryInterface
      */
-    protected abstract function createRepo(): RepoInterface;
+    abstract protected function createRepo(): RepoInterface;
 }

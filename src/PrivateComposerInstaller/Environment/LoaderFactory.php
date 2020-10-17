@@ -18,11 +18,15 @@ class LoaderFactory
      */
     public static function create(string $path = null, string $name = null): LoaderInterface
     {
+        $paths = $path !== null
+            ? [realpath($path)]
+            : self::computePaths(realpath(getcwd()));
+
         if (class_exists(Parser::class)) {
-            return new Dotenv5Loader(self::computePaths(realpath($path ?? getcwd())), $name);
+            return new Dotenv5Loader($paths, $name);
         }
 
-        return new Dotenv4Loader(self::computePaths(realpath($path ?? getcwd())), $name);
+        return new Dotenv4Loader($paths, $name);
     }
 
     /**
@@ -36,9 +40,9 @@ class LoaderFactory
     {
         $paths = [$path];
 
-        while (!in_array($path, ['.', DIRECTORY_SEPARATOR], true)) {
-          $path = dirname($path);
-          $paths[] = $path;
+        while (! in_array($path, ['.', DIRECTORY_SEPARATOR], true)) {
+            $path = dirname($path);
+            $paths[] = $path;
         }
 
         return $paths;
