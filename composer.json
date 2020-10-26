@@ -19,24 +19,27 @@
     "wp"
   ],
   "require": {
-    "php": "^7.1",
-    "composer-plugin-api": "^1.0.0",
-    "vlucas/phpdotenv": "^4.0"
+    "php": "^7.1 || ^8.0",
+    "composer-plugin-api": "^1.0 || ^2.0",
+    "vlucas/phpdotenv": "^4.1 || ^5.2"
   },
   "require-dev": {
-    "composer/composer": "1.0.*",
-    "phpunit/phpunit": "^8.0",
-    "laminas/laminas-coding-standard": "^1.0"
+    "composer/composer": "^1.0 || ^2.0",
+    "laminas/laminas-coding-standard": "^2.0",
+    "symfony/phpunit-bridge": "^5.1",
+    "symfony/process": "^4.4 || ^5.1"
   },
   "scripts": {
-    "check": [
+    "test": [
       "@cs-check",
-      "@test"
+      "@test-unit",
+      "@test-integration"
     ],
     "cs-check": "phpcs",
     "cs-fix": "phpcbf",
-    "test": "phpunit --colors=always",
-    "test-coverage": "phpunit --colors=always --coverage-clover clover.xml"
+    "test-unit": "vendor/bin/simple-phpunit --testsuite unit --verbose",
+    "test-unit-coverage": "vendor/bin/simple-phpunit --testsuite unit --verbose --coverage-clover clover.xml",
+    "test-integration": "vendor/bin/simple-phpunit --testsuite integration --verbose"
   },
   "autoload": {
     "psr-4": {
@@ -44,6 +47,7 @@
     }
   },
   "extra": {
-    "class": "FFraenz\\PrivateComposerInstaller\\Plugin"
+    "class": "FFraenz\\PrivateComposerInstaller\\Plugin",
+    "plugin-modifies-downloads": true
   }
 }

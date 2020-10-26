@@ -1,11 +1,15 @@
-/.coveralls.yml export-ignore
 /.dockerignore export-ignore
 /.gitattributes export-ignore
+/.github export-ignore
 /.gitignore export-ignore
+/.phpcs-cache export-ignore
 /.travis.yml export-ignore
+/clover.xml export-ignore
 /composer.dockerfile export-ignore
 /composer.lock export-ignore
+/coveralls-upload.json export-ignore
 /docker-compose.yml export-ignore
 /docs/ export-ignore
+/phpcs.xml export-ignore
 /phpunit.xml.dist export-ignore
 /test/ export-ignore

@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit bootstrap="vendor/autoload.php">
   <testsuites>
-    <testsuite name="Private Composer Installer Test Suite">
-      <directory>test</directory>
+    <testsuite name="unit">
+      <directory>test/PrivateComposerInstaller</directory>
+    </testsuite>
+    <testsuite name="integration">
+      <directory>test/integration</directory>
     </testsuite>
   </testsuites>
   <filter>

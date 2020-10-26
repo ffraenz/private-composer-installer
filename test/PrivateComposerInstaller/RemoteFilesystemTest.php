@@ -3,15 +3,28 @@
 namespace FFraenz\PrivateComposerInstaller\Test;
 
 use Composer\IO\IOInterface;
+use Composer\Plugin\PluginInterface;
 use FFraenz\PrivateComposerInstaller\RemoteFilesystem;
 use PHPUnit\Framework\TestCase;
 
+use function file_get_contents;
+use function sys_get_temp_dir;
+use function tempnam;
+use function unlink;
+use function version_compare;
+
 class RemoteFilesystemTest extends TestCase
 {
+    /** @var IOInterface|null */
     protected $io;
 
     protected function setUp(): void
     {
+        // As of Composer 2 this class is no longer in use
+        if (version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0.0', '>=')) {
+            $this->markTestSkipped();
+        }
+
         $this->io = $this->createMock(IOInterface::class);
     }
 
@@ -28,7 +41,7 @@ class RemoteFilesystemTest extends TestCase
         // Test inspired by testCopy in
         // Composer\Test\Util\RemoteFilesystemTest
         $privateFileUrl = 'file://' . __FILE__;
-        $filesystem = new RemoteFilesystem($privateFileUrl, $this->io);
+        $filesystem     = new RemoteFilesystem($privateFileUrl, $this->io);
 
         $file = tempnam(sys_get_temp_dir(), 'ff');
         $this->assertTrue($filesystem->copy(

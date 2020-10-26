@@ -1,30 +1,32 @@
 <?php
 
+declare(strict_types=1);
+
 namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Config;
 use Composer\IO\IOInterface;
 
 /**
- * A composer remote filesystem making it possible to
- * copy files from a private file url.
+ * Composer 1 remote filesystem allowing the plugin to copy files from a private
+ * file URL.
  */
 class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
 {
     /**
-     * The private file url that should be used
-     * instead of the given file url in copy.
+     * Private file URL that replaces the given file URL in copy
+     *
      * @var string
      */
     protected $privateFileUrl;
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function __construct(
         $privateFileUrl,
         IOInterface $io,
-        Config $config = null,
+        ?Config $config = null,
         array $options = [],
         $disableTls = false
     ) {
@@ -33,7 +35,7 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function copy(
         $originUrl,
@@ -53,8 +55,7 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
     }
 
     /**
-     * Returns the private file URL.
-     * @return string
+     * Return the private file URL
      */
     public function getPrivateFileUrl(): string
     {

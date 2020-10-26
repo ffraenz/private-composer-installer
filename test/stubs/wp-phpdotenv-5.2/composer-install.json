@@ -1,0 +1,43 @@
+{
+  "name": "user/name",
+  "type": "project",
+  "description": "WordPress Setup",
+  "homepage": "https://example.com",
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../../../"
+    },
+    {
+      "type": "package",
+      "package": {
+        "name": "wordpress/classic-editor",
+        "version": "1.5",
+        "type": "wordpress-plugin",
+        "dist": {
+          "type": "zip",
+          "url": "https://downloads.wordpress.org/plugin/{%PLUGIN_EDITOR_NAME}.{%VERSION}.zip"
+        },
+        "require": {
+          "ffraenz/private-composer-installer": "*",
+          "composer/installers": "^1.5"
+        }
+      }
+    }
+  ],
+  "require": {
+    "php": "^7.1 || ^8.0",
+    "wordpress/classic-editor": "*",
+    "vlucas/phpdotenv": "^5.2"
+  },
+  "extra": {
+    "installer-paths": {
+      "public/content/mu-plugins/{$name}/": ["type:wordpress-muplugin"],
+      "public/content/plugins/{$name}/": ["type:wordpress-plugin"],
+      "public/content/themes/{$name}/": ["type:wordpress-theme"]
+    },
+    "wordpress-install-dir": "public/wp"
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
