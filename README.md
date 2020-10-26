@@ -136,7 +136,7 @@ docker-compose run --rm composer composer install
 Before pushing changes to the repository run tests and check coding standards using following command:
 
 ```bash
-docker-compose run --rm composer composer check
+docker-compose run --rm composer composer test
 ```
 
 ---

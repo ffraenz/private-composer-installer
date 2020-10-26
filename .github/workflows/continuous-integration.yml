@@ -35,9 +35,9 @@ jobs:
       - name: "Install PHP"
         uses: "shivammathur/setup-php@v2"
         with:
-          coverage: "none"
           php-version: "${{ matrix.php-version }}"
           tools: "composer:${{ matrix.composer-version }}"
+          coverage: "xdebug"
 
       - name: "Choose PHPUnit version"
         run: |
