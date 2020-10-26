@@ -44,7 +44,7 @@ jobs:
         with:
           timeout_minutes: 5
           max_attempts: 5
-          command: composer require "composer/composer:^1.0" --no-update --no-interaction
+          command: composer require "composer/composer:^1.0" --dev --no-update --no-interaction
         if: "matrix.composer-version == 'v1'"
 
       - name: "Choose PHPUnit version"

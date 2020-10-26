@@ -12,40 +12,42 @@ use function preg_match;
 
 class IntegrationTest extends TestCase
 {
-    protected function getPWD(): string
-    {
-        return __DIR__ . '/../stubs/tmp';
-    }
+    /** @var string|null */
+    protected $pwd;
 
     protected function setUp(): void
     {
+        // Choose tmp working directory to run test case in
+        $this->pwd = sys_get_temp_dir() . '/private-composer-installer';
+
         // Create working directory
-        @mkdir($this->getPWD());
+        @mkdir($this->pwd);
     }
 
     protected function tearDown(): void
     {
         // Remove working directory
-        $process = new Process(['rm', '-r', $this->getPWD()]);
+        $process = new Process(['rm', '-r', $this->pwd]);
         $process->mustRun();
+        $this->pwd = null;
     }
 
     public function testWordPressComposerIntegration()
     {
         $path           = __DIR__ . '/../stubs/wordpress';
-        $pluginFilePath = $this->getPWD()
+        $pluginFilePath = $this->pwd
             . '/public/content/plugins/classic-editor/classic-editor.php';
 
         // Install project
-        copy($path . '/composer-install.json', $this->getPWD() . '/composer.json');
-        copy($path . '/.env', $this->getPWD() . '/.env');
+        copy($path . '/composer-install.json', $this->pwd . '/composer.json');
+        copy($path . '/.env', $this->pwd . '/.env');
         $install = new Process(
             [
                 __DIR__ . '/../../vendor/composer/composer/bin/composer',
                 'install',
                 '--no-interaction',
             ],
-            $this->getPWD()
+            $this->pwd
         );
         $install->setTimeout(60);
         $install->mustRun();
@@ -57,14 +59,14 @@ class IntegrationTest extends TestCase
         $this->assertTrue(preg_match('/Version:\s+1\.5/', $pluginFile) === 1);
 
         // Update phpdotenv and dependency
-        copy($path . '/composer-update.json', $this->getPWD() . '/composer.json');
+        copy($path . '/composer-update.json', $this->pwd . '/composer.json');
         $update = new Process(
             [
                 __DIR__ . '/../../vendor/composer/composer/bin/composer',
                 'update',
                 '--no-interaction',
             ],
-            $this->getPWD()
+            $this->pwd
         );
         $update->setTimeout(60);
         $update->mustRun();
