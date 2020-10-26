@@ -39,6 +39,14 @@ jobs:
           tools: "composer:${{ matrix.composer-version }}"
           coverage: "xdebug"
 
+      - name: "Choose Composer 1 version"
+        uses: nick-invision/retry@v1
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer require "composer/composer:^1.0" --no-update --no-interaction
+        if: "matrix.composer-version == 'v1'"
+
       - name: "Choose PHPUnit version"
         run: |
           if [ "${{ matrix.php-version }}" = "7.1" ]; then
