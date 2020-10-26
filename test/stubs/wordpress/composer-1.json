@@ -31,7 +31,7 @@
   "require": {
     "php": "^7.1.0",
     "wordpress/classic-editor": "*",
-    "vlucas/phpdotenv": "^5.0"
+    "vlucas/phpdotenv": "^4.1 || ^5.2"
   },
   "extra": {
     "installer-paths": {
