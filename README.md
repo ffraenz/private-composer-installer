@@ -2,7 +2,7 @@
 
 [![Packagist version](https://img.shields.io/packagist/v/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
-[![Build Status](https://img.shields.io/github/workflow/status/ffraenz/private-composer-installer/continuous-integration/master)](https://github.com/ffraenz/private-composer-installer/actions)
+[![Build Status](https://img.shields.io/github/workflow/status/ffraenz/private-composer-installer/Continuous%20Integration/master)](https://github.com/ffraenz/private-composer-installer/actions)
 [![Coverage Status](https://coveralls.io/repos/github/ffraenz/private-composer-installer/badge.svg?branch=master)](https://coveralls.io/github/ffraenz/private-composer-installer?branch=master)
 [![Packagist downloads](https://img.shields.io/packagist/dt/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 
