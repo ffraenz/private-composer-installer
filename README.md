@@ -2,25 +2,26 @@
 
 [![Packagist version](https://img.shields.io/packagist/v/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
-[![Build Status](https://travis-ci.org/ffraenz/private-composer-installer.svg?branch=master)](https://travis-ci.org/ffraenz/private-composer-installer)
+[![Build Status](https://img.shields.io/github/workflow/status/ffraenz/private-composer-installer/continuous-integration/master)](https://github.com/ffraenz/private-composer-installer/actions)
 [![Coverage Status](https://coveralls.io/repos/github/ffraenz/private-composer-installer/badge.svg?branch=master)](https://coveralls.io/github/ffraenz/private-composer-installer?branch=master)
 [![Packagist downloads](https://img.shields.io/packagist/dt/ffraenz/private-composer-installer.svg?maxAge=3600)](https://packagist.org/packages/ffraenz/private-composer-installer)
 
-This is a [Composer](https://getcomposer.org/) plugin offering a way to reference private package URLs within `composer.json` and `composer.lock`. It outsources sensitive dist URL parts (license keys, tokens) into environment variables or a `.env` file typically ignored by version control. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer).
+This is a [Composer](https://getcomposer.org/) plugin offering a way to reference private package URLs within `composer.json` and `composer.lock`. It outsources sensitive dist URL parts (license keys, tokens) into environment variables or a `.env` file typically ignored by version control. This is especially useful when you can't use [Private Packagist](https://packagist.com/) or [Basic HTTP Auth](https://getcomposer.org/doc/articles/authentication-for-private-packages.md#http-basic) because the source of a package is not in your control. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer).
 
 ## Quick overview
 
-- When installing or updating a package, the dist URL `{%VERSION}` placeholder gets replaced by the version set in the package. In Composer 1 the versioned dist URL is added to `composer.lock`.
-- Before downloading the package, `{%VARIABLE}` formatted placeholders get replaced by their corresponding env variables in the dist URL. Env vars will never be stored inside `composer.lock`.
-- If an env variable is not available for the given placeholder the plugin trys to read it from the `.env` file in the working directory or in one of the parent directories. The `.env` file gets parsed by [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv).
-- If an env variable can't be resolved a `MissingEnvException` gets thrown.
+- This plugin is compatible with both Composer 2.x (latest) and 1.x.
+- When installing or updating a package, the dist URL `{%VERSION}` placeholder gets replaced by the version set in the package. In Composer 1 the dist URL version gets fulfilled before it is added to `composer.lock`.
+- Before downloading the package, `{%VARIABLE}` formatted placeholders get replaced by their corresponding environment variables in the dist URL. Env vars will never be stored inside `composer.lock`.
+- If an environment variable is not available for the given placeholder the plugin trys to read it from the `.env` file in the working directory or in one of the parent directories. The `.env` file gets parsed by [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv).
+- If an environment variable can't be resolved a `MissingEnvException` gets thrown.
 - Package dist URLs with no `{%VARIABLE}` formatted placeholders get ignored by this plugin.
 
 ## Examples
 
 ### Arbitrary private package
 
-Add the desired private package to the `repositories` field inside `composer.json`. Find more about composer repositories in the [composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories). Replace the version as well as other sensitive tokens by `{%VARIABLE}` placeholders.
+Add the desired private package to the `repositories` field inside `composer.json`. Find more about Composer repositories in the [Composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories). Replace the version as well as other sensitive tokens by `{%VARIABLE}` placeholders.
 
 ```json
 {
@@ -45,7 +46,7 @@ Provide the private package dist URL inside the `.env` file:
 PACKAGE_KEY=pleasedontusethiskey
 ```
 
-Let composer require the private package:
+Let Composer require the private package:
 
 ```bash
 composer require "package-name/package-name:*"
@@ -67,7 +68,6 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
       "url": "https://connect.advancedcustomfields.com/index.php?a=download&p=pro&k={%PLUGIN_ACF_KEY}&t={%VERSION}"
     },
     "require": {
-      "johnpbloch/wordpress" : "^5.0",
       "composer/installers": "^1.4",
       "ffraenz/private-composer-installer": "^5.0"
     }
@@ -127,7 +127,7 @@ This package heavily depends on [vlucas/phpdotenv](https://github.com/vlucas/php
 
 ## Development
 
-Install composer dependencies:
+Install Composer dependencies:
 
 ```bash
 docker-compose run --rm composer composer install

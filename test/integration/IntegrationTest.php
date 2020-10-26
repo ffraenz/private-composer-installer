@@ -37,6 +37,8 @@ class IntegrationTest extends TestCase
 
     public function testWordPressComposerIntegration()
     {
+        // Using a different phpdotenv version in the integration test than
+        // currently installed leads to CI issues
         $path = class_exists(Parser::class)
             ? __DIR__ . '/../stubs/wp-phpdotenv-5.2'
             : __DIR__ . '/../stubs/wp-phpdotenv-4.1';
