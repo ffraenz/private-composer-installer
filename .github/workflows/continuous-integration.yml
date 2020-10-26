@@ -74,6 +74,7 @@ jobs:
 
       - name: "Run PHP_CodeSniffer"
         run: "composer cs-check"
+        if: "matrix.composer-version == 'v2' && matrix.php-version == '7.4'"
 
       - name: "Run unit test suite and collect coverage data"
         run: "composer test-unit-coverage"
