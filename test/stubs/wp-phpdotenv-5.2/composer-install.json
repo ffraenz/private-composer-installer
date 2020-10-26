@@ -6,16 +6,13 @@
   "repositories": [
     {
       "type": "path",
-      "url": "../../../",
-      "options": {
-        "symlink": false
-      }
+      "url": "../../../"
     },
     {
       "type": "package",
       "package": {
         "name": "wordpress/classic-editor",
-        "version": "1.6",
+        "version": "1.5",
         "type": "wordpress-plugin",
         "dist": {
           "type": "zip",
@@ -31,7 +28,7 @@
   "require": {
     "php": "^7.1 || ^8.0",
     "wordpress/classic-editor": "*",
-    "vlucas/phpdotenv": "^4.1 || ^5.2"
+    "vlucas/phpdotenv": "^5.2"
   },
   "extra": {
     "installer-paths": {

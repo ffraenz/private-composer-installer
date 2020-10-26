@@ -2,13 +2,16 @@
 
 namespace FFraenz\PrivateComposerInstaller\Test;
 
+use Dotenv\Parser\Parser;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
+use function class_exists;
 use function copy;
 use function file_get_contents;
 use function mkdir;
 use function preg_match;
+use function sys_get_temp_dir;
 
 class IntegrationTest extends TestCase
 {
@@ -34,7 +37,10 @@ class IntegrationTest extends TestCase
 
     public function testWordPressComposerIntegration()
     {
-        $path           = __DIR__ . '/../stubs/wordpress';
+        $path = class_exists(Parser::class)
+            ? __DIR__ . '/../stubs/wp-phpdotenv-5.2'
+            : __DIR__ . '/../stubs/wp-phpdotenv-4.1';
+
         $pluginFilePath = $this->pwd
             . '/public/content/plugins/classic-editor/classic-editor.php';
 
