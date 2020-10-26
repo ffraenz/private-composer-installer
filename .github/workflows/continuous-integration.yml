@@ -104,8 +104,7 @@ jobs:
 
     steps:
       - name: "Merge intermediate results and finalize Coveralls report"
-        env:
-          COVERALLS_ENDPOINT: https://coveralls.io/webhook
-          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -k $COVERALLS_ENDPOINT/webhook?repo_token=$COVERALLS_REPO_TOKEN -d "payload[build_num]=$GITHUB_RUN_ID&payload[status]=done"
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true
