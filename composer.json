@@ -26,16 +26,22 @@
   "require-dev": {
     "composer/composer": "^1.0 || ^2.0",
     "laminas/laminas-coding-standard": "^1.0",
-    "symfony/phpunit-bridge": "^5.1"
+    "symfony/phpunit-bridge": "^5.1",
+    "symfony/process": "^5.1"
   },
   "scripts": {
     "check": [
       "@cs-check",
       "@test"
     ],
-    "cs-check": "phpcs",
-    "cs-fix": "phpcbf",
-    "test": "vendor/bin/simple-phpunit --verbose",
+    "test": [
+      "@test-unit",
+      "@test-integration"
+    ],
+    "cs-check": "phpcs --ignore=test/stubs test",
+    "cs-fix": "phpcbf --ignore=test/stubs test",
+    "test-unit": "vendor/bin/simple-phpunit --testsuite unit --verbose",
+    "test-integration": "vendor/bin/simple-phpunit --testsuite integration --verbose",
     "test-coverage": "vendor/bin/simple-phpunit --coverage-clover clover.xml"
   },
   "autoload": {
