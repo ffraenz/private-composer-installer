@@ -44,6 +44,7 @@
     }
   },
   "extra": {
-    "class": "FFraenz\\PrivateComposerInstaller\\Plugin"
+    "class": "FFraenz\\PrivateComposerInstaller\\Plugin",
+    "plugin-modifies-downloads": true
   }
 }

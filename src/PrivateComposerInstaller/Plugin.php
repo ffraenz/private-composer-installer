@@ -211,21 +211,23 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
     {
-        $filteredProcessedUrl = $processedUrl = $event->getProcessedUrl();
+        $filteredProcessedUrl = $filteredCacheKey = $processedUrl =
+            $event->getProcessedUrl();
 
         if (! self::isComposer1() && $event->getType() === 'package') {
             // Fulfill version placeholder for packages
             // In Composer 1 this step is done upon package install & update
             $package = $event->getContext();
             $version = $package->getPrettyVersion();
-            $filteredProcessedUrl = $this->fulfillVersionPlaceholder(
-                $filteredProcessedUrl,
-                $version
-            );
+            $filteredProcessedUrl = $filteredCacheKey =
+                $this->fulfillVersionPlaceholder(
+                    $filteredProcessedUrl,
+                    $version
+                );
         }
 
         // Fulfill env placeholders
-        $filteredProcessedUrl = $this->fulfillPlaceholders($processedUrl);
+        $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
 
         // Submit changes to Composer, if any
         if ($filteredProcessedUrl !== $processedUrl) {
@@ -240,8 +242,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                     $originalRemoteFilesystem->isTlsDisabled()
                 ));
             } else {
-                // Set processed URL
+                // Set processed URL and cache key
                 $event->setProcessedUrl($filteredProcessedUrl);
+                $event->setCustomCacheKey($filteredCacheKey);
             }
         }
     }
