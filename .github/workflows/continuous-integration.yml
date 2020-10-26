@@ -77,11 +77,11 @@ jobs:
 
       - name: "Run unit test suite and collect coverage data"
         run: "composer test-unit-coverage"
-        if: "matrix.composer-version == 'v1' || matrix.php-version == '7.4"
+        if: "matrix.composer-version == 'v1' || matrix.php-version == '7.4'"
 
       - name: "Run unit test suite"
         run: "composer test-unit"
-        if: "matrix.composer-version != 'v1' && matrix.php-version != '7.4"
+        if: "matrix.composer-version != 'v1' && matrix.php-version != '7.4'"
 
       - name: "Run integration test suite"
         run: "composer test-integration"
