@@ -86,12 +86,15 @@ jobs:
       - name: "Run integration test suite"
         run: "composer test-integration"
 
-      - name: "Send intermediate results to Coveralls"
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          flag-name: php-${{ matrix.php-version }}_composer-${{ matrix.composer-version }}_phpdotenv-${{ matrix.phpdotenv-version }}
-          parallel: true
+      - name: "Upload intermediate results to Coveralls"
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_FLAG_NAME: php-${{ matrix.php-version }}_composer-${{ matrix.composer-version }}_phpdotenv-${{ matrix.phpdotenv-version }}
+          COVERALLS_PARALLEL: true
+        run: |
+          composer global require php-coveralls/php-coveralls
+          php-coveralls --coverage_clover=clover.xml --json_path coveralls-upload.json -v
+        if: "matrix.composer-version == 'v1' || matrix.php-version == '7.4'"
 
   finish:
     name: "Coverage"
@@ -99,8 +102,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: "Finalize Coveralls"
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
+      - name: "Merge intermediate results and finalize Coveralls report"
+        env:
+          COVERALLS_ENDPOINT: https://coveralls.io/webhook
+          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -k $COVERALLS_ENDPOINT/webhook?repo_token=$COVERALLS_REPO_TOKEN -d "payload[build_num]=$GITHUB_RUN_ID&payload[status]=done"
