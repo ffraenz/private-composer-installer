@@ -5,7 +5,6 @@ on: [push, pull_request]
 jobs:
   tests:
     name: "CI"
-
     runs-on: ubuntu-latest
 
     strategy:
@@ -23,6 +22,9 @@ jobs:
             composer-version: "v1"
             phpdotenv-version: "^4.1"
           - php-version: "7.1"
+            composer-version: "v1"
+            phpdotenv-version: "^5.2"
+          - php-version: "7.4"
             composer-version: "v1"
             phpdotenv-version: "^5.2"
 
@@ -70,5 +72,35 @@ jobs:
           command: composer update --prefer-dist --no-interaction --no-progress --ignore-platform-req=php
         if: "matrix.php-version >= 8"
 
-      - name: "Run test suite"
-        run: "composer test"
+      - name: "Run PHP_CodeSniffer"
+        run: "composer cs-check"
+
+      - name: "Run unit test suite and collect coverage data"
+        run: "composer test-unit-coverage"
+        if: "matrix.composer-version == 'v1' || matrix.php-version == '7.4"
+
+      - name: "Run unit test suite"
+        run: "composer test-unit"
+        if: "matrix.composer-version != 'v1' && matrix.php-version != '7.4"
+
+      - name: "Run integration test suite"
+        run: "composer test-integration"
+
+      - name: "Send intermediate results to Coveralls"
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          flag-name: php-${{ matrix.php-version }}_composer-${{ matrix.composer-version }}_phpdotenv-${{ matrix.phpdotenv-version }}
+          parallel: true
+
+  finish:
+    name: "Coverage"
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Finalize Coveralls"
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true

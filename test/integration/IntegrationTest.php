@@ -34,12 +34,13 @@ class IntegrationTest extends TestCase
             '/public/content/plugins/classic-editor/classic-editor.php';
 
         // Install project
-        copy($path . '/composer-1.json', $this->getPWD() . '/composer.json');
+        copy($path . '/composer-install.json', $this->getPWD() . '/composer.json');
         copy($path . '/.env', $this->getPWD() . '/.env');
         $install = new Process(
             [
                 __DIR__ . '/../../vendor/composer/composer/bin/composer',
                 'install',
+                '--no-interaction',
             ],
             $this->getPWD()
         );
@@ -53,11 +54,12 @@ class IntegrationTest extends TestCase
         $this->assertTrue(preg_match('/Version:\s+1\.5/', $pluginFile) === 1);
 
         // Update phpdotenv and dependency
-        copy($path . '/composer-2.json', $this->getPWD() . '/composer.json');
+        copy($path . '/composer-update.json', $this->getPWD() . '/composer.json');
         $update = new Process(
             [
                 __DIR__ . '/../../vendor/composer/composer/bin/composer',
                 'update',
+                '--no-interaction',
             ],
             $this->getPWD()
         );

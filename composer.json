@@ -30,19 +30,16 @@
     "symfony/process": "^4.4 || ^5.1"
   },
   "scripts": {
-    "check": [
-      "@cs-check",
-      "@test"
-    ],
     "test": [
+      "@cs-check",
       "@test-unit",
       "@test-integration"
     ],
     "cs-check": "phpcs --ignore=test/stubs test",
     "cs-fix": "phpcbf --ignore=test/stubs test",
     "test-unit": "vendor/bin/simple-phpunit --testsuite unit --verbose",
-    "test-integration": "vendor/bin/simple-phpunit --testsuite integration --verbose",
-    "test-coverage": "vendor/bin/simple-phpunit --coverage-clover clover.xml"
+    "test-unit-coverage": "vendor/bin/simple-phpunit --testsuite unit --verbose --coverage-clover clover.xml",
+    "test-integration": "vendor/bin/simple-phpunit --testsuite integration --verbose"
   },
   "autoload": {
     "psr-4": {
