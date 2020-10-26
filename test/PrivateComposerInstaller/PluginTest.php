@@ -417,9 +417,9 @@ class PluginTest extends TestCase
      * Expect the plugin to alter the given dist URL in a certain way.
      */
     protected function expectLockedDistUrl(
-        string $distUrl,
+        ?string $distUrl,
         string $version,
-        string $expectedDistUrl
+        ?string $expectedDistUrl
     ): void {
         $changeExpected = $distUrl !== $expectedDistUrl;
 
