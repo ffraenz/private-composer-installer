@@ -3,7 +3,7 @@ name: "Continuous Integration"
 on: [push, pull_request]
 
 jobs:
-  tests:
+  test:
     name: "CI"
     runs-on: ubuntu-latest
 
