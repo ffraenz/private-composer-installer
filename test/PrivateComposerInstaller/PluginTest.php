@@ -205,7 +205,7 @@ class PluginTest extends TestCase
         $this->expectProcessedUrl(
             '{%SECRET_URL}',
             '1.2.3',
-            'https://example.com/r/#1.2.3'
+            'https://example.com/r/#v1.2.3'
         );
     }
 
