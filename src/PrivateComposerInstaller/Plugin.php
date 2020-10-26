@@ -9,7 +9,6 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
-use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
@@ -17,37 +16,36 @@ use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 
+use function array_merge;
+use function array_search;
+use function array_unique;
+use function count;
+use function preg_match_all;
+use function preg_replace;
+use function str_replace;
+use function strpos;
+use function strtolower;
+use function version_compare;
+
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
-    /**
-     * @var \Composer\Composer|null
-     */
+    /** @var Composer|null */
     protected $composer;
 
-    /**
-     * @var \Composer\IO\IOInterface|null
-     */
+    /** @var IOInterface|null */
     protected $io;
 
-    /**
-     * @var array|null
-     */
+    /** @var array|null */
     protected $config;
 
-    /**
-     * @var \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface|null
-     */
+    /** @var LoaderInterface|null */
     protected $loader;
 
-    /**
-     * @var \FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface|null
-     */
+    /** @var RepositoryInterface|null */
     protected $repository;
 
     /**
      * Return the composer instance.
-     *
-     * @return \Composer\Composer|null
      */
     public function getComposer(): ?Composer
     {
@@ -56,8 +54,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Return the IO interface object.
-     *
-     * @return \Composer\IO\IOInterface|null
      */
     public function getIO(): ?IOInterface
     {
@@ -69,8 +65,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      *
      * Returns the entire root config array, if key is set to null.
      *
-     * @param string $key
-     *
      * @return mixed
      */
     public function getConfig(?string $key)
@@ -81,9 +75,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 'dotenv-name' => null,
             ];
 
-            $rootPackage = $this->getComposer()->getPackage();
-            $extra = $rootPackage->getExtra();
-            $config = $extra['private-composer-installer'] ?? [];
+            $rootPackage  = $this->getComposer()->getPackage();
+            $extra        = $rootPackage->getExtra();
+            $config       = $extra['private-composer-installer'] ?? [];
             $this->config = array_merge($this->config, $config);
         }
 
@@ -92,21 +86,15 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Set the environment variable loader instance.
-     *
-     * @param \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface $loader
-     *
-     * @return void
      */
     public function setEnvironmentLoader(LoaderInterface $loader): void
     {
-        $this->loader = $loader;
+        $this->loader     = $loader;
         $this->repository = null;
     }
 
     /**
      * Get the environment variable loader instance.
-     *
-     * @return \FFraenz\PrivateComposerInstaller\Environment\LoaderInterface
      */
     public function getEnvironmentLoader(): LoaderInterface
     {
@@ -124,8 +112,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Load and return the environment repository.
      *
      * If the repository has already been loaded, this is not repeated.
-     *
-     * @return \FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface
      */
     public function getEnvironmentRepository(): RepositoryInterface
     {
@@ -137,57 +123,53 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public static function getSubscribedEvents()
     {
         return self::isComposer1() ? [
             PackageEvents::PRE_PACKAGE_INSTALL => 'handlePreInstallUpdateEvent',
-            PackageEvents::PRE_PACKAGE_UPDATE => 'handlePreInstallUpdateEvent',
-            PluginEvents::PRE_FILE_DOWNLOAD => ['handlePreDownloadEvent', -1],
+            PackageEvents::PRE_PACKAGE_UPDATE  => 'handlePreInstallUpdateEvent',
+            PluginEvents::PRE_FILE_DOWNLOAD    => ['handlePreDownloadEvent', -1],
         ] : [
             PluginEvents::PRE_FILE_DOWNLOAD => ['handlePreDownloadEvent', -1],
         ];
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function activate(Composer $composer, IOInterface $io)
     {
         $this->composer = $composer;
-        $this->io = $io;
+        $this->io       = $io;
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function deactivate(Composer $composer, IOInterface $io)
     {
         $this->composer = null;
-        $this->io = null;
+        $this->io       = null;
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function uninstall(Composer $composer, IOInterface $io)
     {
-        //
     }
 
     /**
      * Handle PRE_PACKAGE_INSTALL and PRE_PACKAGE_UPDATE Composer events.
      *
      * Only gets triggered running Composer 1.
-     *
-     * @param \Composer\Installer\PackageEvent $event
-     *
-     * @return void
      */
     public function handlePreInstallUpdateEvent(PackageEvent $event): void
     {
         $operation = $event->getOperation();
+
         $package = $operation->getJobType() === 'update'
             ? $operation->getTargetPackage()
             : $operation->getPackage();
@@ -196,6 +178,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // before the dist URL gets written into `composer.lock`
         $distUrl = $package->getDistUrl();
         $version = $package->getPrettyVersion();
+
         $filteredDistUrl = $this->fulfillVersionPlaceholder($distUrl, $version);
         if ($filteredDistUrl !== $distUrl) {
             $package->setDistUrl($filteredDistUrl);
@@ -204,10 +187,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Fulfill package URL placeholders before downloading the package.
-     *
-     * @param \Composer\Plugin\PreFileDownloadEvent $event
-     *
-     * @return void
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
     {
@@ -219,6 +198,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             // In Composer 1 this step is done upon package install & update
             $package = $event->getContext();
             $version = $package->getPrettyVersion();
+
             $filteredProcessedUrl = $filteredCacheKey =
                 $this->fulfillVersionPlaceholder(
                     $filteredProcessedUrl,
@@ -254,9 +234,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      *
      * Filtered dist URLs get stored inside `composer.lock`.
      *
-     * @param string|null $url
-     * @param string|null $version
-     *
      * @return ?string
      */
     public function fulfillVersionPlaceholder(?string $url, ?string $version)
@@ -284,10 +261,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Filter the given processed URL before downloading.
      *
      * Filtered processed URLs do not get stored inside `composer.lock`.
-     *
-     * @param string|null $url
-     *
-     * @return string|null
      */
     public function fulfillPlaceholders(?string $url): ?string
     {
@@ -296,7 +269,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // Replace each placeholder with env var
         foreach ($placeholders as $placeholder) {
             $value = $this->getEnvironmentRepository()->get($placeholder);
-            $url = str_replace('{%' . $placeholder . '}', $value, $url);
+            $url   = str_replace('{%' . $placeholder . '}', $value, $url);
         }
 
         return $url;
@@ -304,8 +277,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Retrieve placeholders for the given URL.
-     *
-     * @param string|null $url
      *
      * @return string[]
      */
@@ -332,8 +303,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Test if this plugin runs within Composer 2.
-     *
-     * @return bool
      */
     protected static function isComposer1(): bool
     {

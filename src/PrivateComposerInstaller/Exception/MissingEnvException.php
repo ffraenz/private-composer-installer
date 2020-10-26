@@ -4,13 +4,22 @@ declare(strict_types=1);
 
 namespace FFraenz\PrivateComposerInstaller\Exception;
 
-class MissingEnvException extends \Exception
+use Exception;
+
+use function sprintf;
+
+class MissingEnvException extends Exception
 {
-    public function __construct($key)
+    /**
+     * Constructor
+     *
+     * @param string $key Environment key
+     */
+    public function __construct(string $key)
     {
         parent::__construct(sprintf(
-            'Can\'t resolve placeholder {%%%1$s}. ' .
-            'Environment variable \'%1$s\' is not set.',
+            'Can\'t resolve placeholder {%%%1$s}. '
+            . 'Environment variable \'%1$s\' is not set.',
             $key
         ));
     }

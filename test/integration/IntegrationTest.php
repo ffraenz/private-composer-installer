@@ -2,10 +2,13 @@
 
 namespace FFraenz\PrivateComposerInstaller\Test;
 
-use \RecursiveDirectoryIterator;
-use \RecursiveIteratorIterator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
+
+use function copy;
+use function file_get_contents;
+use function mkdir;
+use function preg_match;
 
 class IntegrationTest extends TestCase
 {
@@ -29,9 +32,9 @@ class IntegrationTest extends TestCase
 
     public function testWordPressComposerIntegration()
     {
-        $path = __DIR__ . '/../stubs/wordpress';
-        $pluginFilePath = $this->getPWD() .
-            '/public/content/plugins/classic-editor/classic-editor.php';
+        $path           = __DIR__ . '/../stubs/wordpress';
+        $pluginFilePath = $this->getPWD()
+            . '/public/content/plugins/classic-editor/classic-editor.php';
 
         // Install project
         copy($path . '/composer-install.json', $this->getPWD() . '/composer.json');

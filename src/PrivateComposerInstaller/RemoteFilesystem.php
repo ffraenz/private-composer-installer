@@ -15,17 +15,18 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
 {
     /**
      * Private file URL that replaces the given file URL in copy
+     *
      * @var string
      */
     protected $privateFileUrl;
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function __construct(
         $privateFileUrl,
         IOInterface $io,
-        Config $config = null,
+        ?Config $config = null,
         array $options = [],
         $disableTls = false
     ) {
@@ -34,7 +35,7 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
     public function copy(
         $originUrl,
@@ -55,7 +56,6 @@ class RemoteFilesystem extends \Composer\Util\RemoteFilesystem
 
     /**
      * Return the private file URL
-     * @return string
      */
     public function getPrivateFileUrl(): string
     {

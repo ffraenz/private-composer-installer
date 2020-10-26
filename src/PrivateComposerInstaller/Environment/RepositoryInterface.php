@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace FFraenz\PrivateComposerInstaller\Environment;
 
+use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
+
 interface RepositoryInterface
 {
     /**
      * Get an environment value by the given key.
      *
-     * @param string $key
-     *
-     * @throws \FFraenz\PrivateComposerInstaller\Exception\MissingEnvException
-     *
-     * @return string
+     * @throws MissingEnvException
      */
     public function get(string $key): string;
 }

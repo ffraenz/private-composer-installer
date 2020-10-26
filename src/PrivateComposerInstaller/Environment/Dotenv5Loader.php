@@ -13,8 +13,6 @@ class Dotenv5Loader extends AbstractDotenvLoader
 {
     /**
      * Create a repository instance.
-     *
-     * @return \Dotenv\Repository\RepositoryInterface
      */
     protected function createRepo(): RepoInterface
     {

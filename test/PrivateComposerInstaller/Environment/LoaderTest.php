@@ -8,6 +8,9 @@ use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use PHPUnit\Framework\TestCase;
 
+use function chdir;
+use function getcwd;
+
 class LoaderTest extends TestCase
 {
     public function testCanCreateAndLoad()
@@ -22,7 +25,7 @@ class LoaderTest extends TestCase
      */
     public function testCanLoadCustomPathAndName()
     {
-        $repo = LoaderFactory::create(__DIR__.'/../../stubs/example', '.env.test')->load();
+        $repo = LoaderFactory::create(__DIR__ . '/../../stubs/example', '.env.test')->load();
         self::assertSame('Hi there!', $repo->get('EG_VAR'));
     }
 
@@ -32,7 +35,7 @@ class LoaderTest extends TestCase
     public function testCanLoadParentFile()
     {
         $cwd = getcwd();
-        chdir(__DIR__.'/../../stubs/foo/bar');
+        chdir(__DIR__ . '/../../stubs/foo/bar');
         $repo = LoaderFactory::create()->load();
         self::assertSame('Hi', $repo->get('FOO_VAR'));
         chdir($cwd);

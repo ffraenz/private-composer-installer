@@ -6,37 +6,30 @@ namespace FFraenz\PrivateComposerInstaller\Environment;
 
 use Dotenv\Dotenv;
 use Dotenv\Repository\RepositoryInterface as RepoInterface;
+use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 
 abstract class AbstractDotenvLoader implements LoaderInterface
 {
-    /**
-     * @var string[]
-     */
+    /** @var string[] */
     protected $paths;
 
-    /**
-     * @var string|null
-     */
+    /** @var string|null */
     protected $name;
 
     /**
      * Create a new loader instance.
      *
      * @param string[]    $paths
-     * @param string|null $name
-     *
      * @return void
      */
-    public function __construct(array $paths, string $name = null)
+    public function __construct(array $paths, ?string $name = null)
     {
         $this->paths = $paths;
-        $this->name = $name;
+        $this->name  = $name;
     }
 
     /**
      * Load and return an environment repository.
-     *
-     * @return \FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface
      */
     public function load(): RepositoryInterface
     {
@@ -49,8 +42,6 @@ abstract class AbstractDotenvLoader implements LoaderInterface
 
     /**
      * Create a repository instance.
-     *
-     * @return \Dotenv\Repository\RepositoryInterface
      */
     abstract protected function createRepo(): RepoInterface;
 }

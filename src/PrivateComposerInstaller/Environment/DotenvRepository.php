@@ -7,17 +7,15 @@ namespace FFraenz\PrivateComposerInstaller\Environment;
 use Dotenv\Repository\RepositoryInterface as RepoInterface;
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 
+use function is_string;
+
 class DotenvRepository implements RepositoryInterface
 {
-    /**
-     * @var \Dotenv\Repository\RepositoryInterface
-     */
+    /** @var RepoInterface */
     protected $repo;
 
     /**
      * Create a new repository instance.
-     *
-     * @param \Dotenv\Repository\RepositoryInterface $repo
      *
      * @return void
      */
@@ -29,11 +27,7 @@ class DotenvRepository implements RepositoryInterface
     /**
      * Get an environment value by the given key.
      *
-     * @param string $key
-     *
-     * @throws \FFraenz\PrivateComposerInstaller\Exception\MissingEnvException
-     *
-     * @return string
+     * @throws MissingEnvException
      */
     public function get(string $key): string
     {

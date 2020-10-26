@@ -20,6 +20,15 @@ use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
 use FFraenz\PrivateComposerInstaller\Plugin;
 use PHPUnit\Framework\TestCase;
 
+use function file_exists;
+use function file_put_contents;
+use function getcwd;
+use function unlink;
+use function version_compare;
+
+use const DIRECTORY_SEPARATOR;
+use const PHP_EOL;
+
 class PluginTest extends TestCase
 {
     protected function tearDown(): void
@@ -48,8 +57,8 @@ class PluginTest extends TestCase
     public function testActivateAndDeactivateSetsAndClearsComposerAndIO()
     {
         $composer = $this->createComposerMock();
-        $io = $this->createMock(IOInterface::class);
-        $plugin = new Plugin();
+        $io       = $this->createMock(IOInterface::class);
+        $plugin   = new Plugin();
         $plugin->activate($composer, $io);
         $this->assertEquals($composer, $plugin->getComposer());
         $this->assertEquals($io, $plugin->getIO());
@@ -62,8 +71,8 @@ class PluginTest extends TestCase
     public function testDeactivateClearsComposerAndIO()
     {
         $composer = $this->createComposerMock();
-        $io = $this->createMock(IOInterface::class);
-        $plugin = new Plugin();
+        $io       = $this->createMock(IOInterface::class);
+        $plugin   = new Plugin();
         $plugin->activate($composer, $io);
         $this->assertEquals($composer, $plugin->getComposer());
         $this->assertEquals($io, $plugin->getIO());
@@ -72,8 +81,8 @@ class PluginTest extends TestCase
     public function testLazyEnvironmentLoaderInstantiation()
     {
         $composer = $this->createComposerMock();
-        $io = $this->createMock(IOInterface::class);
-        $plugin = new Plugin();
+        $io       = $this->createMock(IOInterface::class);
+        $plugin   = new Plugin();
         $plugin->activate($composer, $io);
         $this->assertInstanceOf(LoaderInterface::class, $plugin->getEnvironmentLoader());
     }
@@ -81,9 +90,9 @@ class PluginTest extends TestCase
     public function testSetEnvironmentLoader()
     {
         $composer = $this->createComposerMock();
-        $io = $this->createMock(IOInterface::class);
-        $loader = $this->createMock(LoaderInterface::class);
-        $plugin = new Plugin();
+        $io       = $this->createMock(IOInterface::class);
+        $loader   = $this->createMock(LoaderInterface::class);
+        $plugin   = new Plugin();
         $plugin->activate($composer, $io);
         $plugin->setEnvironmentLoader($loader);
         $this->assertEquals($loader, $plugin->getEnvironmentLoader());
@@ -177,8 +186,8 @@ class PluginTest extends TestCase
     {
         $this->expectException(MissingEnvException::class);
         $this->expectExceptionMessage(
-            'Can\'t resolve placeholder {%KEY_FOO}. ' .
-            'Environment variable \'KEY_FOO\' is not set.'
+            'Can\'t resolve placeholder {%KEY_FOO}. '
+            . 'Environment variable \'KEY_FOO\' is not set.'
         );
         $this->expectProcessedUrl(
             'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
@@ -307,8 +316,14 @@ class PluginTest extends TestCase
         $this->assertFalse(isset($_SERVER['KEY_FOO']));
     }
 
-    protected function expectProcessedUrl($processedUrl, $version, $expectedUrl)
-    {
+    /**
+     * Expect the plugin to alter the given processed URL in a certain way.
+     */
+    protected function expectProcessedUrl(
+        string $processedUrl,
+        string $version,
+        string $expectedUrl
+    ): void {
         $changeExpected = $processedUrl !== $expectedUrl;
 
         $event = $this
@@ -336,9 +351,9 @@ class PluginTest extends TestCase
             ->willReturn('package');
 
         if (self::isComposer1()) {
-            $options = ['options' => 'array'];
+            $options     = ['options' => 'array'];
             $tlsDisabled = true;
-            $rfs = $this
+            $rfs         = $this
                 ->getMockBuilder(RemoteFilesystem::class)
                 ->disableOriginalConstructor()
                 ->setMethods(['getOptions', 'isTlsDisabled'])
@@ -392,14 +407,20 @@ class PluginTest extends TestCase
         }
 
         $composer = $this->createComposerMock();
-        $io = $this->createMock(IOInterface::class);
-        $plugin = new Plugin();
+        $io       = $this->createMock(IOInterface::class);
+        $plugin   = new Plugin();
         $plugin->activate($composer, $io);
         $plugin->handlePreDownloadEvent($event);
     }
 
-    protected function expectLockedDistUrl($distUrl, $version, $expectedDistUrl)
-    {
+    /**
+     * Expect the plugin to alter the given dist URL in a certain way.
+     */
+    protected function expectLockedDistUrl(
+        string $distUrl,
+        string $version,
+        string $expectedDistUrl
+    ): void {
         $changeExpected = $distUrl !== $expectedDistUrl;
 
         // Mock a package
@@ -429,8 +450,8 @@ class PluginTest extends TestCase
 
         // Activate plugin
         $composer = $this->createComposerMock();
-        $io = $this->createMock(IOInterface::class);
-        $plugin = new Plugin();
+        $io       = $this->createMock(IOInterface::class);
+        $plugin   = new Plugin();
         $plugin->activate($composer, $io);
 
         // Test package install event
@@ -442,7 +463,7 @@ class PluginTest extends TestCase
         $plugin->handlePreInstallUpdateEvent($event);
     }
 
-    protected function createComposerMock()
+    protected function createComposerMock(): Composer
     {
         $rootPackage = $this
             ->getMockBuilder(RootPackage::class)
@@ -474,8 +495,8 @@ class PluginTest extends TestCase
 
     protected function createInstallEventMock(
         PackageInterface $package,
-        $jobType
-    ) {
+        string $jobType
+    ): PackageEvent {
         // Mock an operation
         $operation = $this
             ->getMockBuilder(InstallOperation::class)
@@ -509,7 +530,7 @@ class PluginTest extends TestCase
         return $packageEvent;
     }
 
-    protected static function isComposer1()
+    protected static function isComposer1(): bool
     {
         return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
     }
