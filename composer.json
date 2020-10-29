@@ -43,7 +43,7 @@
   },
   "autoload": {
     "psr-4": {
-      "FFraenz\\PrivateComposerInstaller\\": "src/PrivateComposerInstaller"
+      "FFraenz\\PrivateComposerInstaller\\": "src"
     }
   },
   "extra": {
