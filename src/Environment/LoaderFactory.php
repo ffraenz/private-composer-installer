@@ -8,12 +8,10 @@ use Dotenv\Parser\Parser;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 
 use function class_exists;
+use function count;
 use function dirname;
 use function getcwd;
-use function in_array;
 use function realpath;
-
-use const DIRECTORY_SEPARATOR;
 
 class LoaderFactory
 {
@@ -38,13 +36,14 @@ class LoaderFactory
      *
      * @return string[]
      */
-    private static function computePaths(string $path): array
+    public static function computePaths(string $path): array
     {
         $paths = [$path];
+        $path  = dirname($path);
 
-        while (! in_array($path, ['.', DIRECTORY_SEPARATOR], true)) {
-            $path    = dirname($path);
+        while ($paths[count($paths) - 1] !== $path) {
             $paths[] = $path;
+            $path    = dirname($path);
         }
 
         return $paths;
