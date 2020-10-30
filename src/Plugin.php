@@ -234,9 +234,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      *
      * Filtered dist URLs get stored inside `composer.lock`.
      *
-     * @return ?string
+     * @param string|int|null $version Non-normalized package version
      */
-    public function fulfillVersionPlaceholder(?string $url, ?string $version)
+    public function fulfillVersionPlaceholder(?string $url, $version): ?string
     {
         // Check if package dist url contains any placeholders (incl. version)
         $placeholders = $this->identifyPlaceholders($url);
