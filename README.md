@@ -61,7 +61,7 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
   "type": "package",
   "package": {
     "name": "advanced-custom-fields/advanced-custom-fields-pro",
-    "version": "1.2.3",
+    "version": "5.10.2",
     "type": "wordpress-plugin",
     "dist": {
       "type": "zip",
