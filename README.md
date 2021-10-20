@@ -19,16 +19,16 @@ This is a [Composer](https://getcomposer.org/) plugin offering a way to referenc
 
 ## Examples
 
-### Arbitrary private package
+### Arbitrary private packages
 
-Add the desired private package to the `repositories` field inside `composer.json`. Find more about Composer repositories in the [Composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories). Replace the version as well as other sensitive tokens by `{%VARIABLE}` placeholders.
+Add the desired private package to the `repositories` field inside `composer.json`. Find more about Composer repositories in the [Composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories). Specify the exact version to install, and use `{%VARIABLE}` placeholders to specify any sensitive tokens in your `.env` file.
 
 ```json
 {
   "type": "package",
   "package": {
     "name": "package-name/package-name",
-    "version": "1.0.0",
+    "version": "REPLACE_WITH_LATEST_PACKAGE_VERSION",
     "dist": {
       "type": "zip",
       "url": "https://example.com/package-name.zip?key={%PACKAGE_KEY}&version={%VERSION}"
@@ -61,7 +61,7 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
   "type": "package",
   "package": {
     "name": "advanced-custom-fields/advanced-custom-fields-pro",
-    "version": "1.2.3",
+    "version": "REPLACE_WITH_LATEST_ACF_VERSION",
     "type": "wordpress-plugin",
     "dist": {
       "type": "zip",
