@@ -28,7 +28,7 @@ Add the desired private package to the `repositories` field inside `composer.jso
   "type": "package",
   "package": {
     "name": "package-name/package-name",
-    "version": "REPLACE_WITH_LATEST_PLUGIN_VERSION",
+    "version": "REPLACE_WITH_LATEST_PACKAGE_VERSION",
     "dist": {
       "type": "zip",
       "url": "https://example.com/package-name.zip?key={%PACKAGE_KEY}&version={%VERSION}"
