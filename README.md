@@ -19,7 +19,7 @@ This is a [Composer](https://getcomposer.org/) plugin offering a way to referenc
 
 ## Examples
 
-### Arbitrary private package
+### Arbitrary private packages
 
 Add the desired private package to the `repositories` field inside `composer.json`. Find more about Composer repositories in the [Composer documentation](https://getcomposer.org/doc/05-repositories.md#repositories). Specify the exact version to install, and use `{%VARIABLE}` placeholders to specify any sensitive tokens in your `.env` file.
 
