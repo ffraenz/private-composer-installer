@@ -186,6 +186,52 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
+     * Handle indirection process, like used by WP EDD
+     * The "indirection" property can contain:
+     * "http" and "ssl" object, as defined by https://github.com/composer/composer/blob/main/src/Composer/Util/Http/CurlDownloader.php
+     * "parse": {
+     *   "format": "json" # only supported value
+     *   "key": # A string (or an object for specifying nested keys to fetch the package download URL from
+     * }
+     */
+    public function fetchIndirection(PreFileDownloadEvent $event, string $url, array $extra): string
+    {
+        $options = [
+            'http' => array_replace_recursive(['method' => 'GET'], $extra['indirection']['http'] ?? []),
+            'ssl' => $extra['indirection']['ssl'] ?? []
+        ];
+
+        $data = $event->getHttpDownloader()->get($url, $options);
+        if ($extra['indirection']['parse']['format'] ?? false === 'json') {
+            $response = $data->decodeJson();
+            $key = $extra['indirection']['parse']['key'] ?? false;
+            if ($key) {
+                // Look for a succession of (nested) keys within a recursive array (from the JSON)
+                $jsonObj = $response;
+                do {
+                    $index = is_string($key) ? $key : key($key);
+                    if (! isset($jsonObj[$index])) {
+                        break;
+                    }
+                    $jsonObj = $jsonObj[$index];
+                    if (!is_array($key)) {
+                        break;
+                    }
+                    $key = $key[$index] ?? false;
+                } while ($key);
+
+                return is_array($jsonObj) ? json_encode($jsonObj) : $jsonObj;
+            }
+
+            // format=json but no key specified (!)
+            return json_encode($response);
+        } else {
+            // raw HTML (future usage of regexp?)
+            return $data->getBody();
+        }
+    }
+
+    /**
      * Fulfill package URL placeholders before downloading the package.
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
@@ -198,6 +244,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             // In Composer 1 this step is done upon package install & update
             $package = $event->getContext();
             $version = $package->getPrettyVersion();
+            $extra = $package->getExtra()['private-composer-installer'] ?? [];
 
             $filteredProcessedUrl = $filteredCacheKey =
                 $this->fulfillVersionPlaceholder(
@@ -208,6 +255,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         // Fulfill env placeholders
         $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
+
+        if ($extra['indirection'] ?? false) {
+            $filteredCacheKey = $filteredProcessedUrl = $this->fetchIndirection($event, $filteredProcessedUrl, $extra);
+        }
 
         // Submit changes to Composer, if any
         if ($filteredProcessedUrl !== $processedUrl) {
