@@ -65,7 +65,7 @@ WordPress plugins can be installed using the package type `wordpress-plugin` in 
     "type": "wordpress-plugin",
     "dist": {
       "type": "zip",
-      "url": "https://connect.advancedcustomfields.com/v2/plugins/download?p=pro&k={%PLUGIN_ACF_KEY}==&t={%VERSION}"
+      "url": "https://connect.advancedcustomfields.com/v2/plugins/download?p=pro&k={%PLUGIN_ACF_KEY}&t={%VERSION}"
     },
     "require": {
       "composer/installers": "^1.4",
