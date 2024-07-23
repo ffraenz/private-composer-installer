@@ -210,7 +210,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // Fulfill env placeholders
         $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
 
-        if ($extra['indirection'] ?? false) {
+        if (isset($extra['indirection'])) {
             $filteredCacheKey = $filteredProcessedUrl = $this->fetchIndirection($event, $filteredProcessedUrl, $extra);
         }
 
@@ -236,6 +236,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Handle indirection process, like used by WP EDD
+     *
      * The "indirection" property can contain:
      * "http" and "ssl" object, as defined by https://github.com/composer/composer/blob/main/src/Composer/Util/Http/CurlDownloader.php
      * "parse": {
@@ -247,37 +248,42 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     {
         $options = [
             'http' => array_replace_recursive(['method' => 'GET'], $extra['indirection']['http'] ?? []),
-            'ssl' => $extra['indirection']['ssl'] ?? []
+            'ssl'  => $extra['indirection']['ssl'] ?? [],
         ];
 
-        $data = $event->getHttpDownloader()->get($url, $options);
-        if ($extra['indirection']['parse']['format'] ?? false === 'json') {
-            $response = $data->decodeJson();
-            $key = $extra['indirection']['parse']['key'] ?? false;
-            if ($key) {
-                // Look for a succession of (nested) keys within a recursive array (from the JSON)
-                $jsonObj = $response;
-                do {
-                    $index = is_string($key) ? $key : key($key);
-                    if (! isset($jsonObj[$index])) {
-                        break;
-                    }
-                    $jsonObj = $jsonObj[$index];
-                    if (!is_array($key)) {
-                        break;
-                    }
-                    $key = $key[$index] ?? false;
-                } while ($key);
+        $response = $event->getHttpDownloader()->get($url, $options);
+        if ($extra['indirection']['parse']['format'] ?? false !== 'json') {
+            // Raw HTML
+            // @TODO Future usage of regexp
+            return $response->getBody();
+        }
 
-                return is_array($jsonObj) ? json_encode($jsonObj) : $jsonObj;
+        $jsonObject = $response->decodeJson();
+
+        $key = $extra['indirection']['parse']['key'] ?? false;
+        if ($key === false) {
+            // format=json but no key specified
+            return json_encode($jsonObject);
+        }
+
+        // Look for a succession of possibly nested keys
+        // within a recursive array from the JSON object
+        do {
+            $index = is_array($key) ? key($key) : $key;
+            if (! isset($jsonObject[$index])) {
+                break;
             }
 
-            // format=json but no key specified (!)
-            return json_encode($response);
-        } else {
-            // raw HTML (future usage of regexp?)
-            return $data->getBody();
-        }
+            // Go one level deeper
+            $jsonObject = $jsonObject[$index];
+            if (! is_array($key)) {
+                break;
+            }
+
+            $key = $key[$index] ?? false;
+        } while (is_array($key) || is_string($key));
+
+        return is_array($jsonObject) ? json_encode($jsonObject) : $jsonObject;
     }
 
     /**
