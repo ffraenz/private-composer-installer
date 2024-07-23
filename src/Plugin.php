@@ -242,14 +242,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Handle indirection process, like used by WP EDD
+     * Handle indirect package download URL.
      *
-     * The "indirection" property can contain:
-     * "http" and "ssl" object, as defined by https://github.com/composer/composer/blob/main/src/Composer/Util/Http/CurlDownloader.php
-     * "parse": {
-     *   "format": "json" # only supported value
-     *   "key": # A string (or an object for specifying nested keys to fetch the package download URL from
-     * }
+     * @param  string  $url   The package intermediary URL.
+     * @param  mixed[] $extra The package extra data.
+     * @return string Returns the package download URL on sucess or
+     *     the serialized response from the intermediary on failure.
      */
     public function fetchIndirection(PreFileDownloadEvent $event, string $url, array $extra): string
     {

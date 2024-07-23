@@ -114,6 +114,65 @@ Dotenv file directory relative to the root package (where `composer.json` is loc
 
 Dotenv file name. Defaults to `.env`.
 
+### indirection
+
+> [!NOTE]
+> This feature is only supported with Composer 2 (latest).
+
+Indirection provides support for downloading a package from a temporary URL that is provided through the response from the dist URL (the intermediary). By default this plugin expects the dist URL to be the package's download URL.
+
+For example, certain WordPress plugins such as Gravity Forms, and managers such Easy Digital Downloads (EDD), usually serve their downloads from a temporary signed URL that is provided through an API endpoint as a JSON response.
+
+The indirection property can contain the following options:
+
+* `http` and `ssl` objects, as defined by [Composer's `CurlDownloader`](https://github.com/composer/composer/blob/2.2/src/Composer/Util/Http/CurlDownloader.php), to customize the request to the intermediary URL.
+* `parse` object which expects:
+  * `format`: A string indicating the kind of response expected from the intermediary's HTTP response. Only `json` is supported.
+  * `key`: A string, or an object for specifying nested keys, to extract the package download URL from.
+
+```jsonc
+"indirection": {
+  "http": {
+    "method": "POST"
+  },
+  "ssl": {
+    "passphrase": "{%PACKAGE_SSL_PW}"
+  },
+  "parse": {
+    "format": "json",
+    "key": "data.0.download_url"
+  }
+}
+```
+
+The indirection can be defined from the private package's inline extra data:
+
+```jsonc
+{
+  "repositories": [
+    {
+      "type": "package",
+      "package": {
+        "name": "package-name/package-name",
+        "version": "1.0.0",
+        "dist": {
+          "type": "zip",
+          "url": "https://example.com/api/download?name=foobar&key={%PACKAGE_KEY}&version={%VERSION}"
+        },
+        "require": {
+          "ffraenz/private-composer-installer": "^5.0"
+        },
+        "extra": {
+          "private-composer-installer": {
+            "indirection": {/* … */}
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
 ## Dependencies
 
 This package heavily depends on [vlucas/phpdotenv](https://github.com/vlucas/phpdotenv) to load environment variables "automagically". This may cause version conflicts if your project already depends on it. Refer to this table to set the version of `private-composer-installer` accordingly or consider upgrading.
