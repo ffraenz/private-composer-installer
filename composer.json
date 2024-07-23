@@ -49,5 +49,10 @@
   "extra": {
     "class": "FFraenz\\PrivateComposerInstaller\\Plugin",
     "plugin-modifies-downloads": true
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
   }
 }
