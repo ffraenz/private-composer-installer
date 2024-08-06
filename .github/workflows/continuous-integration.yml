@@ -64,21 +64,12 @@ jobs:
           max_attempts: 5
           command: composer require "vlucas/phpdotenv:${{ matrix.phpdotenv-version }}" --no-update --no-interaction
 
-      - name: Install PHP 7 dependencies
+      - name: Install PHP dependencies
         uses: nick-invision/retry@v1
         with:
           timeout_minutes: 5
           max_attempts: 5
           command: composer update --prefer-dist --no-interaction --no-progress
-        if: "matrix.php-version < 8"
-
-      - name: Install PHP 8 dependencies
-        uses: nick-invision/retry@v1
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer update --prefer-dist --no-interaction --no-progress --ignore-platform-req=php
-        if: "matrix.php-version >= 8"
 
       - name: "Run PHP_CodeSniffer"
         run: "composer cs-check"
