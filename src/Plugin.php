@@ -215,7 +215,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
 
         if (isset($extra['indirection'])) {
-            $filteredCacheKey = $filteredProcessedUrl = $this->fetchIndirection(
+            $filteredProcessedUrl = $this->fetchIndirection(
                 $event,
                 $filteredProcessedUrl,
                 $extra
