@@ -128,7 +128,7 @@ The indirection property can contain the following options:
 * `http` and `ssl` objects, as defined by [Composer's `CurlDownloader`](https://github.com/composer/composer/blob/2.2/src/Composer/Util/Http/CurlDownloader.php), to customize the request to the intermediary URL.
 * `parse` object which expects:
   * `format`: A string indicating the kind of response expected from the intermediary's HTTP response. Only `json` is supported.
-  * `key`: A string, or an object for specifying nested keys, to extract the package download URL from.
+  * `key`: A string for specifying the key or key path ("dot" notation) to extract the package download URL from. Wildcards are not supported.
 
 ```jsonc
 "indirection": {

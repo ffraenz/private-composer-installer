@@ -16,15 +16,16 @@ use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 
+use function array_key_exists;
 use function array_merge;
 use function array_replace_recursive;
 use function array_search;
 use function array_unique;
 use function count;
+use function explode;
 use function is_array;
-use function is_string;
 use function json_encode;
-use function key;
+use function mb_strpos;
 use function preg_match_all;
 use function preg_replace;
 use function str_replace;
@@ -261,36 +262,44 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $format = $extra['indirection']['parse']['format'] ?? false;
         if ($format !== 'json') {
             // Raw HTML
+            // @TODO Throw error
             // @TODO Future usage of regexp
             return $response->getBody();
         }
 
-        $jsonObject = $response->decodeJson();
+        $data = $response->decodeJson();
 
         $key = $extra['indirection']['parse']['key'] ?? false;
         if ($key === false) {
             // format=json but no key specified
-            return json_encode($jsonObject);
+            // @TODO Throw error
+            return $response->getBody();
         }
 
         // Look for a succession of possibly nested keys
         // within a recursive array from the JSON object
-        do {
-            $index = is_array($key) ? key($key) : $key;
-            if (! isset($jsonObject[$index])) {
-                break;
+        if (array_key_exists($key, $data)) {
+            // @TODO Throw error
+            $data = $data[$key];
+            return is_array($data) ? json_encode($data) : $data;
+        }
+
+        if (mb_strpos($key, '.') === false) {
+            // format=json but no key found
+            // @TODO Throw error
+            return $response->getBody();
+        }
+
+        foreach (explode('.', $key) as $segment) {
+            if (is_array($data) && array_key_exists($segment, $data)) {
+                $data = $data[$segment];
+            } else {
+                // @TODO Throw error
+                return $response->getBody();
             }
+        }
 
-            // Go one level deeper
-            $jsonObject = $jsonObject[$index];
-            if (! is_array($key)) {
-                break;
-            }
-
-            $key = $key[$index] ?? false;
-        } while (is_array($key) || is_string($key));
-
-        return is_array($jsonObject) ? json_encode($jsonObject) : $jsonObject;
+        return is_array($data) ? json_encode($data) : $data;
     }
 
     /**
