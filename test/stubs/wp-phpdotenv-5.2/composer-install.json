@@ -38,6 +38,12 @@
     },
     "wordpress-install-dir": "public/wp"
   },
+  "config": {
+    "allow-plugins": {
+      "composer/installers": true,
+      "ffraenz/private-composer-installer": true
+    }
+  },
   "minimum-stability": "dev",
   "prefer-stable": true
 }
