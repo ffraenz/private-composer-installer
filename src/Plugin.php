@@ -17,9 +17,14 @@ use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 
 use function array_merge;
+use function array_replace_recursive;
 use function array_search;
 use function array_unique;
 use function count;
+use function is_array;
+use function is_string;
+use function json_encode;
+use function key;
 use function preg_match_all;
 use function preg_replace;
 use function str_replace;
@@ -190,28 +195,30 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
     {
-        $filteredProcessedUrl = $filteredCacheKey = $processedUrl =
-            $event->getProcessedUrl();
+        $filteredProcessedUrl = $filteredCacheKey = $processedUrl = $event->getProcessedUrl();
 
         if (! self::isComposer1() && $event->getType() === 'package') {
             // Fulfill version placeholder for packages
             // In Composer 1 this step is done upon package install & update
             $package = $event->getContext();
             $version = $package->getPrettyVersion();
-            $extra = $package->getExtra()['private-composer-installer'] ?? [];
+            $extra   = $package->getExtra()['private-composer-installer'] ?? [];
 
-            $filteredProcessedUrl = $filteredCacheKey =
-                $this->fulfillVersionPlaceholder(
-                    $filteredProcessedUrl,
-                    $version
-                );
+            $filteredProcessedUrl = $filteredCacheKey = $this->fulfillVersionPlaceholder(
+                $filteredProcessedUrl,
+                $version
+            );
         }
 
         // Fulfill env placeholders
         $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
 
         if (isset($extra['indirection'])) {
-            $filteredCacheKey = $filteredProcessedUrl = $this->fetchIndirection($event, $filteredProcessedUrl, $extra);
+            $filteredCacheKey = $filteredProcessedUrl = $this->fetchIndirection(
+                $event,
+                $filteredProcessedUrl,
+                $extra
+            );
         }
 
         // Submit changes to Composer, if any
@@ -252,7 +259,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         ];
 
         $response = $event->getHttpDownloader()->get($url, $options);
-        if ($extra['indirection']['parse']['format'] ?? false !== 'json') {
+
+        $format = $extra['indirection']['parse']['format'] ?? false;
+        if ($format !== 'json') {
             // Raw HTML
             // @TODO Future usage of regexp
             return $response->getBody();
@@ -349,10 +358,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $placeholders = [];
         foreach ($matches[1] as $match) {
             // The 'version' placeholder is case-insensitive
-            $placeholders[] =
-                strtolower($match) !== 'version'
-                    ? $match
-                    : 'version';
+            $placeholders[] = strtolower($match) !== 'version'
+                ? $match
+                : 'version';
         }
 
         return array_unique($placeholders);
