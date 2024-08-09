@@ -5,16 +5,22 @@ declare(strict_types=1);
 namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Composer;
+use Composer\Downloader\TransportException;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
+use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
+use Composer\Util\Http\Response;
+use Composer\Util\HttpDownloader;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
+use InvalidArgumentException;
+use UnexpectedValueException;
 
 use function array_key_exists;
 use function array_merge;
@@ -23,18 +29,26 @@ use function array_search;
 use function array_unique;
 use function count;
 use function explode;
+use function in_array;
 use function is_array;
-use function json_encode;
+use function is_string;
+use function mb_strlen;
 use function mb_strpos;
+use function mb_substr;
 use function parse_url;
 use function preg_match_all;
 use function preg_replace;
+use function sprintf;
 use function str_replace;
 use function strpos;
 use function strtolower;
+use function trim;
+use function var_export;
 use function version_compare;
 
+use const PHP_EOL;
 use const PHP_URL_FRAGMENT;
+use const PHP_URL_SCHEME;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -229,12 +243,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (! self::isComposer1() && $event->getType() === 'package') {
             // Fulfill version placeholder for packages
             // In Composer 1 this step is done upon package install & update
-            /** @var \Composer\Package\PackageInterface */
+            /** @var PackageInterface $package */
             $package = $event->getContext();
             $version = $package->getPrettyVersion();
             $extra   = $package->getExtra()['private-composer-installer'] ?? $presetConfig ?? [];
 
-            $filteredProcessedUrl = $filteredCacheKey = $this->fulfillVersionPlaceholder(
+            $filteredCacheKey = $filteredProcessedUrl = $this->fulfillVersionPlaceholder(
                 $filteredProcessedUrl,
                 $version
             );
@@ -243,11 +257,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // Fulfill env placeholders
         $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
 
-        if (isset($extra['indirection'])) {
+        if (isset($package, $extra['indirection'])) {
             $filteredProcessedUrl = $this->fetchIndirection(
-                $event,
+                $event->getHttpDownloader(),
                 $filteredProcessedUrl,
-                $extra
+                $package->getName(),
+                $extra['indirection']
             );
         }
 
@@ -274,61 +289,135 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     /**
      * Handle indirect package download URL.
      *
-     * @param  string  $url   The package intermediary URL.
-     * @param  mixed[] $extra The package extra data.
+     * @param  string  $url     The package intermediary URL.
+     * @param  mixed[] $options The indirection settings.
      * @return string Returns the package download URL on sucess or
      *     the serialized response from the intermediary on failure.
      */
-    public function fetchIndirection(PreFileDownloadEvent $event, string $url, array $extra): string
-    {
-        $options = [
-            'http' => array_replace_recursive(['method' => 'GET'], $extra['indirection']['http'] ?? []),
-            'ssl'  => $extra['indirection']['ssl'] ?? [],
-        ];
-
-        $response = $event->getHttpDownloader()->get($url, $options);
-
-        $format = $extra['indirection']['parse']['format'] ?? false;
+    public function fetchIndirection(
+        HttpDownloader $httpDownloader,
+        string $url,
+        string $packageName,
+        array $options
+    ): string {
+        $format = $options['parse']['format'] ?? false;
         if ($format !== 'json') {
-            // Raw HTML
-            // @TODO Throw error
-            // @TODO Future usage of regexp
-            return $response->getBody();
+            /**
+             * @todo [2024-08-06] Add support for RegExp of non-JSON body (such as XML).
+             * @todo [2024-08-06] Add support for PHP serialized body (such as Gravity Forms).
+             */
+            throw new InvalidArgumentException(sprintf(
+                'Misconfigured package %s: Option "indirection.parse.format" '
+                . 'must be one of "json", received %s',
+                $packageName,
+                var_export($format, true)
+            ));
+        }
+
+        $key = $options['parse']['key'] ?? false;
+        if ($key === false) {
+            throw new InvalidArgumentException(sprintf(
+                'Misconfigured package %s: Option "indirection.parse.key" '
+                . 'must be a valid property or property path, received %s',
+                $packageName,
+                var_export($key, true)
+            ));
+        }
+
+        try {
+            $response = $httpDownloader->get($url, [
+                'http' => array_replace_recursive(['method' => 'GET'], $options['http'] ?? []),
+                'ssl'  => $options['ssl'] ?? [],
+            ]);
+        } catch (TransportException $e) {
+            if ($e->getCode() === 400) {
+                $message = sprintf(
+                    'Invalid request to indirect URL for package %s: %s',
+                    $packageName,
+                    $e->getMessage()
+                );
+            } elseif (in_array($e->getCode(), [401, 403])) {
+                $message = sprintf(
+                    'Invalid authentication to indirect URL for package %s: %s',
+                    $packageName,
+                    $e->getMessage()
+                );
+            } else {
+                $message = sprintf(
+                    'Could not query indirect URL for package %s: %s',
+                    $packageName,
+                    $e->getMessage()
+                );
+            }
+
+            throw new TransportException($message, $e->getCode(), $e);
+        }
+
+        if (! $response->getBody()) {
+            throw new UnexpectedValueException(sprintf(
+                'Expected a data structure from indirect URL for package %s',
+                $packageName
+            ));
         }
 
         $data = $response->decodeJson();
 
-        $key = $extra['indirection']['parse']['key'] ?? false;
-        if ($key === false) {
-            // format=json but no key specified
-            // @TODO Throw error
-            return $response->getBody();
-        }
-
-        // Look for a succession of possibly nested keys
-        // within a recursive array from the JSON object
+        // Look for literal key in response.
         if (array_key_exists($key, $data)) {
-            // @TODO Throw error
-            $data = $data[$key];
-            return is_array($data) ? json_encode($data) : $data;
+            if (is_string($data[$key]) && parse_url($data[$key], PHP_URL_SCHEME)) {
+                return $data[$key];
+            }
+
+            throw new UnexpectedValueException(sprintf(
+                'Expected a URL at property "%s" for package %s, '
+                . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                $key,
+                $packageName,
+                var_export($data[$key], true),
+                self::excerptResponseBody($response)
+            ));
         }
 
+        // If not a key path, bail early.
         if (mb_strpos($key, '.') === false) {
-            // format=json but no key found
-            // @TODO Throw error
-            return $response->getBody();
+            throw new UnexpectedValueException(sprintf(
+                'Expected property "%s" for package %s, '
+                . 'not found in:' . PHP_EOL . PHP_EOL . '%s',
+                $key,
+                $packageName,
+                self::excerptResponseBody($response)
+            ));
         }
 
+        // Iterate segments of key path to traverse response.
         foreach (explode('.', $key) as $segment) {
             if (is_array($data) && array_key_exists($segment, $data)) {
                 $data = $data[$segment];
             } else {
-                // @TODO Throw error
-                return $response->getBody();
+                throw new UnexpectedValueException(sprintf(
+                    'Expected a property path "%s" for package %s, '
+                    . 'interrupted at "%s", found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    $key,
+                    $packageName,
+                    $segment,
+                    var_export($data, true),
+                    self::excerptResponseBody($response)
+                ));
             }
         }
 
-        return is_array($data) ? json_encode($data) : $data;
+        if (is_string($data) && parse_url($data, PHP_URL_SCHEME)) {
+            return $data;
+        }
+
+        throw new UnexpectedValueException(sprintf(
+            'Expected a URL at property path "%s" for package %s, '
+            . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+            $key,
+            $packageName,
+            var_export($data, true),
+            self::excerptResponseBody($response)
+        ));
     }
 
     /**
@@ -400,6 +489,22 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         return array_unique($placeholders);
+    }
+
+    protected static function excerptResponseBody(Response $response): string
+    {
+        $body = $response->getBody();
+        if (! is_string($body)) {
+            return '<empty response>';
+        }
+
+        $body   = trim($body);
+        $length = mb_strlen($body);
+        if ($length === 0) {
+            return '<empty response>';
+        }
+
+        return mb_substr($body, 0, 100) . ($length > 100 ? '...' : '');
     }
 
     /**
