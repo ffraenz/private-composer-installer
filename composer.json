@@ -46,6 +46,11 @@
       "FFraenz\\PrivateComposerInstaller\\": "src"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "FFraenz\\PrivateComposerInstaller\\Test\\": "test/mocks"
+    }
+  },
   "extra": {
     "class": "FFraenz\\PrivateComposerInstaller\\Plugin",
     "plugin-modifies-downloads": true

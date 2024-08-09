@@ -91,26 +91,26 @@ composer require "advanced-custom-fields/advanced-custom-fields-pro:*"
 
 The configuration options listed below may be added to the root configuration in `composer.json` like so:
 
-```json
+```jsonc
 {
-  "name": "...",
-  "description": "...",
-  "require": {
-  },
+  "name": "…",
+  "description": "…",
+  "require": {/* … */},
   "extra": {
     "private-composer-installer": {
       "dotenv-path": ".",
-      "dotenv-name": ".env"
+      "dotenv-name": ".env",
+      "presets": {/* … */}
     }
   }
 }
 ```
 
-### dotenv-path
+### dotenv-path[^1]
 
 Dotenv file directory relative to the root package (where `composer.json` is located). By default dotenv files are expected to be in the root package folder or in any of the parent folders.
 
-### dotenv-name
+### dotenv-name[^1]
 
 Dotenv file name. Defaults to `.env`.
 
@@ -145,7 +145,7 @@ The indirection property can contain the following options:
 }
 ```
 
-The indirection can be defined from the private package's inline extra data:
+The indirection can be defined from a [preset](#presets) or from the private package's inline extra data:
 
 ```jsonc
 {
@@ -170,6 +170,41 @@ The indirection can be defined from the private package's inline extra data:
       }
     }
   ]
+}
+```
+
+### presets[^1]
+
+Presets are sets of configuration options to modify how a private package is processed.
+
+Each private package can only reference one preset. A preset can be applied to a package by appending its identifier as a URI fragment:
+
+```jsonc
+{
+  "repositories": [
+    {
+      "type": "package",
+      "package": {
+        "name": "package-name/package-name",
+        "version": "1.0.0",
+        "dist": {
+          "type": "zip",
+          "url": "https://example.com/api/download?name=foobar&key={%PACKAGE_KEY}&version={%VERSION}#preset-1"
+        },
+        "require": {
+          "ffraenz/private-composer-installer": "^5.0"
+        }
+      }
+    }
+  ],
+  "extra": {
+    "private-composer-installer": {
+      "presets": {
+        "preset-1": {/* … */},
+        "preset-2": {/* … */}
+      }
+    }
+  }
 }
 ```
 
@@ -201,3 +236,5 @@ docker-compose run --rm composer composer test
 ---
 
 This is a project by [Fränz Friederes](https://fraenz.frieder.es/) and [contributors](https://github.com/ffraenz/private-composer-installer/graphs/contributors)
+
+[^1]: Only the [root package](https://getcomposer.org/doc/04-schema.md#root-package) can define this setting.

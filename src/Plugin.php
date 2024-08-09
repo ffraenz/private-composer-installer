@@ -26,12 +26,15 @@ use function explode;
 use function is_array;
 use function json_encode;
 use function mb_strpos;
+use function parse_url;
 use function preg_match_all;
 use function preg_replace;
 use function str_replace;
 use function strpos;
 use function strtolower;
 use function version_compare;
+
+use const PHP_URL_FRAGMENT;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -67,18 +70,19 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Return the config value for the given key.
+     * Return the root config value for the given key.
      *
      * Returns the entire root config array, if key is set to null.
      *
      * @return mixed
      */
-    public function getConfig(?string $key)
+    public function getConfig(?string $key = null)
     {
         if ($this->config === null) {
             $this->config = [
                 'dotenv-path' => null,
                 'dotenv-name' => null,
+                'presets'     => [],
             ];
 
             $rootPackage  = $this->getComposer()->getPackage();
@@ -88,6 +92,22 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         return $key !== null ? ($this->config[$key] ?? null) : $this->config;
+    }
+
+    /**
+     * Return the preset config value for the given key.
+     *
+     * Returns the entire preset array, if key is set to null.
+     *
+     * @return mixed
+     */
+    public function getPreset(string $preset, ?string $key = null)
+    {
+        $presets = $this->getConfig('presets');
+
+        $options = $presets[$preset] ?? null;
+
+        return $key !== null ? ($options[$key] ?? null) : $options;
     }
 
     /**
@@ -196,14 +216,23 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
     {
-        $filteredProcessedUrl = $filteredCacheKey = $processedUrl = $event->getProcessedUrl();
+        $filteredCacheKey = $filteredProcessedUrl = $processedUrl = $event->getProcessedUrl();
+
+        if ($presetKey = parse_url($processedUrl, PHP_URL_FRAGMENT)) {
+            // Extract preset fragment before fullfilling the version placeholder
+            // to avoid a possible double fragment (`#<preset>#v<version>`).
+            // Do not strip the preset fragment to ensure its stored
+            // inside `composer.lock` to allow cache-busting.
+            $presetConfig = $this->getPreset($presetKey);
+        }
 
         if (! self::isComposer1() && $event->getType() === 'package') {
             // Fulfill version placeholder for packages
             // In Composer 1 this step is done upon package install & update
+            /** @var \Composer\Package\PackageInterface */
             $package = $event->getContext();
             $version = $package->getPrettyVersion();
-            $extra   = $package->getExtra()['private-composer-installer'] ?? [];
+            $extra   = $package->getExtra()['private-composer-installer'] ?? $presetConfig ?? [];
 
             $filteredProcessedUrl = $filteredCacheKey = $this->fulfillVersionPlaceholder(
                 $filteredProcessedUrl,
