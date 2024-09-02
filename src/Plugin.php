@@ -314,13 +314,13 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             ));
         }
 
-        $key = $options['parse']['key'] ?? false;
-        if ($key === false) {
+        $downloadKey = $options['parse']['download_key'] ?? false;
+        if ($downloadKey === false) {
             throw new InvalidArgumentException(sprintf(
-                'Misconfigured package %s: Option "indirection.parse.key" '
+                'Misconfigured package %s: Option "indirection.parse.download_key" '
                 . 'must be a valid property or property path, received %s',
                 $packageName,
-                var_export($key, true)
+                var_export($downloadKey, true)
             ));
         }
 
@@ -363,41 +363,41 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $data = $response->decodeJson();
 
         // Look for literal key in response.
-        if (array_key_exists($key, $data)) {
-            if (is_string($data[$key]) && parse_url($data[$key], PHP_URL_SCHEME)) {
-                return $data[$key];
+        if (array_key_exists($downloadKey, $data)) {
+            if (is_string($data[$downloadKey]) && parse_url($data[$downloadKey], PHP_URL_SCHEME)) {
+                return $data[$downloadKey];
             }
 
             throw new UnexpectedValueException(sprintf(
                 'Expected a URL at property "%s" for package %s, '
                 . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
-                $key,
+                $downloadKey,
                 $packageName,
-                var_export($data[$key], true),
+                var_export($data[$downloadKey], true),
                 self::excerptResponseBody($response)
             ));
         }
 
         // If not a key path, bail early.
-        if (mb_strpos($key, '.') === false) {
+        if (mb_strpos($downloadKey, '.') === false) {
             throw new UnexpectedValueException(sprintf(
                 'Expected property "%s" for package %s, '
                 . 'not found in:' . PHP_EOL . PHP_EOL . '%s',
-                $key,
+                $downloadKey,
                 $packageName,
                 self::excerptResponseBody($response)
             ));
         }
 
         // Iterate segments of key path to traverse response.
-        foreach (explode('.', $key) as $segment) {
+        foreach (explode('.', $downloadKey) as $segment) {
             if (is_array($data) && array_key_exists($segment, $data)) {
                 $data = $data[$segment];
             } else {
                 throw new UnexpectedValueException(sprintf(
                     'Expected a property path "%s" for package %s, '
                     . 'interrupted at "%s", found %s in:' . PHP_EOL . PHP_EOL . '%s',
-                    $key,
+                    $downloadKey,
                     $packageName,
                     $segment,
                     var_export($data, true),
@@ -413,7 +413,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         throw new UnexpectedValueException(sprintf(
             'Expected a URL at property path "%s" for package %s, '
             . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
-            $key,
+            $downloadKey,
             $packageName,
             var_export($data, true),
             self::excerptResponseBody($response)

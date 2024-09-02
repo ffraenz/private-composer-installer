@@ -49,8 +49,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'download',
+                            'format'       => 'json',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -97,8 +97,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'a.b.c.0',
+                            'format'       => 'json',
+                            'download_key' => 'a.b.c.0',
                         ],
                     ],
                 ],
@@ -141,10 +141,6 @@ class PluginIndirectionTest extends TestCase
 
         $package = $this->createPackageMock('acme/example', $version);
 
-        // $package
-        //     ->method('getExtra')
-        //     ->willReturn([]);
-
         $rootPackage = $this->createRootPackageMock();
 
         $rootPackage
@@ -155,8 +151,8 @@ class PluginIndirectionTest extends TestCase
                         'preset-1' => [
                             'indirection' => [
                                 'parse' => [
-                                    'format' => 'json',
-                                    'key'    => 'download',
+                                    'format'       => 'json',
+                                    'download_key' => 'download',
                                 ],
                             ],
                         ],
@@ -212,7 +208,7 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'key' => 'download',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -248,7 +244,7 @@ class PluginIndirectionTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage(
-            'Misconfigured package acme/example: Option "indirection.parse.key" '
+            'Misconfigured package acme/example: Option "indirection.parse.download_key" '
             . 'must be a valid property or property path, received false'
         );
 
@@ -318,8 +314,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'download',
+                            'format'       => 'json',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -373,8 +369,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'download',
+                            'format'       => 'json',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -428,8 +424,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'a.b.c.0',
+                            'format'       => 'json',
+                            'download_key' => 'a.b.c.0',
                         ],
                     ],
                 ],
@@ -483,8 +479,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'a.b.c.0',
+                            'format'       => 'json',
+                            'download_key' => 'a.b.c.0',
                         ],
                     ],
                 ],
@@ -534,8 +530,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'download',
+                            'format'       => 'json',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -579,8 +575,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'download',
+                            'format'       => 'json',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -624,8 +620,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'download',
+                            'format'       => 'json',
+                            'download_key' => 'download',
                         ],
                     ],
                 ],
@@ -672,8 +668,8 @@ class PluginIndirectionTest extends TestCase
                 'private-composer-installer' => [
                     'indirection' => [
                         'parse' => [
-                            'format' => 'json',
-                            'key'    => 'a.b.c.0',
+                            'format'       => 'json',
+                            'download_key' => 'a.b.c.0',
                         ],
                     ],
                 ],
