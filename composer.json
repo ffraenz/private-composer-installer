@@ -21,6 +21,7 @@
   "require": {
     "php": "^7.1 || ^8.0",
     "composer-plugin-api": "^1.0 || ^2.0",
+    "composer/semver": "^1.0 || ^2.0 || ^3.0",
     "vlucas/phpdotenv": "^4.1 || ^5.2"
   },
   "require-dev": {

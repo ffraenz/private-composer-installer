@@ -14,6 +14,8 @@ use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
+use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
 use Composer\Util\Http\Response;
 use Composer\Util\HttpDownloader;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
@@ -292,7 +294,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param  array<string, mixed> $options The indirection settings.
      * @throws InvalidArgumentException If a setting of $options is invalid or missing.
      * @throws TransportException       If the intermediary's request failed.
-     * @throws UnexpectedValueException If the intermediary's response is invalid.
+     * @throws UnexpectedValueException If the intermediary's response is invalid
+     *     or if there is a package version mismatch.
      * @return string Returns the package download URL on sucess or
      *     the serialized response from the intermediary on failure.
      */
@@ -364,13 +367,39 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         $data = $response->decodeJson();
 
-        return self::findValueInResponseBody(
+        $downloadUrl = self::findValueInResponseBody(
             $downloadKey,
-            [ $this, 'sanitizeDownloadUrl' ],
+            [$this, 'sanitizeDownloadUrl'],
             $data,
             $response,
             $package
         );
+
+        $versionKey = $options['parse']['version_key'] ?? false;
+        // If no version key, bail early.
+        if ($versionKey === false) {
+            return $downloadUrl;
+        }
+
+        $downloadVersion = self::findValueInResponseBody(
+            $versionKey,
+            [$this, 'sanitizeDownloadVersion'],
+            $data,
+            $response,
+            $package
+        );
+
+        if (! Semver::satisfies((string) $downloadVersion, $package->getPrettyVersion())) {
+            throw new UnexpectedValueException(sprintf(
+                'Expected download version from indirect URL (%s) to match '
+                . 'installed version (%s) for package %s',
+                $downloadVersion,
+                $package->getPrettyVersion(),
+                $package->getName()
+            ));
+        }
+
+        return $downloadUrl;
     }
 
     /**
@@ -461,7 +490,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * @param  ((mixed, string, ?string, Response, PackageInterface):mixed) $sanitizer The value sanitizer and validator.
+     * @param  ((mixed, string, ?string, Response, PackageInterface):mixed) $sanitizer
      * @throws UnexpectedValueException If $key is not found in $data.
      * @return mixed
      */
@@ -535,7 +564,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         if ($keySegment === null) {
             $message = sprintf(
-                'Expected a URL at property "%s" for package %s, '
+                'Expected a valid URL at property "%s" for package %s, '
                 . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
                 $keyPath,
                 $package->getName(),
@@ -544,7 +573,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             );
         } else {
             $message = sprintf(
-                'Expected a URL at property path "%s" for package %s, '
+                'Expected a valid URL at property path "%s" for package %s, '
                 . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
                 $keyPath,
                 $package->getName(),
@@ -554,5 +583,49 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         throw new UnexpectedValueException($message);
+    }
+
+    /**
+     * @param  mixed   $value The value to test.
+     * @param  ?string $keySegment The last segment of $keyPath.
+     * @throws UnexpectedValueException If $value is not a version identifier.
+     * @return string A version identifier.
+     */
+    protected static function sanitizeDownloadVersion(
+        $value,
+        string $keyPath,
+        ?string $keySegment,
+        Response $response,
+        PackageInterface $package
+    ) {
+        try {
+            (new VersionParser())->normalize($value);
+        } catch (UnexpectedValueException $e) {
+            if ($keySegment === null) {
+                $message = sprintf(
+                    'Expected a valid version at property "%s" for package %s, '
+                    . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    $keyPath,
+                    $package->getName(),
+                    var_export($value, true),
+                    self::excerptResponseBody($response)
+                );
+            } else {
+                $message = sprintf(
+                    'Expected a valid version at property path "%s" for package %s, '
+                    . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    $keyPath,
+                    $package->getName(),
+                    var_export($value, true),
+                    self::excerptResponseBody($response)
+                );
+            }
+
+            throw new UnexpectedValueException($message, $e->getCode(), $e);
+        }
+
+        // Return non-normalized version to ensure displayed value
+        // matches occurrence from intermediary response body.
+        return (string) $value;
     }
 }

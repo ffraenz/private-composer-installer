@@ -130,6 +130,7 @@ The indirection property can contain the following options:
 * `parse` object which expects:
   * `format`: Required. A string indicating the kind of response expected from the intermediary's HTTP response. Only `json` is supported.
   * `download_key`: Required. A string for specifying the key or key path ("dot" notation) to extract the package download URL from. Wildcards are not supported.
+  * `version_key`: Optional. A string for specifying the key or key path ("dot" notation) to extract the download's version number from. Wildcards are not supported. If specified, it ensures the intermediary's download matches the package's required version constraint. This is necessary for Gravity Forms and plugins that use EDD.
 
 ```jsonc
 "indirection": {
@@ -141,7 +142,8 @@ The indirection property can contain the following options:
   },
   "parse": {
     "format": "json",
-    "download_key": "data.0.download_url"
+    "download_key": "data.0.download_url",
+    "version_key": "data.0.version"
   }
 }
 ```
