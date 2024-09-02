@@ -245,12 +245,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             // In Composer 1 this step is done upon package install & update
             /** @var PackageInterface $package */
             $package = $event->getContext();
-            $version = $package->getPrettyVersion();
             $extra   = $package->getExtra()['private-composer-installer'] ?? $presetConfig ?? [];
 
             $filteredCacheKey = $filteredProcessedUrl = $this->fulfillVersionPlaceholder(
                 $filteredProcessedUrl,
-                $version
+                $package->getPrettyVersion()
             );
         }
 
@@ -261,8 +260,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             $filteredProcessedUrl = $this->fetchIndirection(
                 $event->getHttpDownloader(),
                 $filteredProcessedUrl,
-                $package->getName(),
-                $extra['indirection']
+                $extra['indirection'],
+                $package
             );
         }
 
@@ -289,16 +288,19 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     /**
      * Handle indirect package download URL.
      *
-     * @param  string  $url     The package intermediary URL.
-     * @param  mixed[] $options The indirection settings.
+     * @param  string               $url     The package intermediary URL.
+     * @param  array<string, mixed> $options The indirection settings.
+     * @throws InvalidArgumentException If a setting of $options is invalid or missing.
+     * @throws TransportException       If the intermediary's request failed.
+     * @throws UnexpectedValueException If the intermediary's response is invalid.
      * @return string Returns the package download URL on sucess or
      *     the serialized response from the intermediary on failure.
      */
     public function fetchIndirection(
         HttpDownloader $httpDownloader,
         string $url,
-        string $packageName,
-        array $options
+        array $options,
+        PackageInterface $package
     ): string {
         $format = $options['parse']['format'] ?? false;
         if ($format !== 'json') {
@@ -309,7 +311,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             throw new InvalidArgumentException(sprintf(
                 'Misconfigured package %s: Option "indirection.parse.format" '
                 . 'must be one of "json", received %s',
-                $packageName,
+                $package->getName(),
                 var_export($format, true)
             ));
         }
@@ -319,7 +321,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             throw new InvalidArgumentException(sprintf(
                 'Misconfigured package %s: Option "indirection.parse.download_key" '
                 . 'must be a valid property or property path, received %s',
-                $packageName,
+                $package->getName(),
                 var_export($downloadKey, true)
             ));
         }
@@ -333,19 +335,19 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             if ($e->getCode() === 400) {
                 $message = sprintf(
                     'Invalid request to indirect URL for package %s: %s',
-                    $packageName,
+                    $package->getName(),
                     $e->getMessage()
                 );
             } elseif (in_array($e->getCode(), [401, 403])) {
                 $message = sprintf(
                     'Invalid authentication to indirect URL for package %s: %s',
-                    $packageName,
+                    $package->getName(),
                     $e->getMessage()
                 );
             } else {
                 $message = sprintf(
                     'Could not query indirect URL for package %s: %s',
-                    $packageName,
+                    $package->getName(),
                     $e->getMessage()
                 );
             }
@@ -356,68 +358,19 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (! $response->getBody()) {
             throw new UnexpectedValueException(sprintf(
                 'Expected a data structure from indirect URL for package %s',
-                $packageName
+                $package->getName()
             ));
         }
 
         $data = $response->decodeJson();
 
-        // Look for literal key in response.
-        if (array_key_exists($downloadKey, $data)) {
-            if (is_string($data[$downloadKey]) && parse_url($data[$downloadKey], PHP_URL_SCHEME)) {
-                return $data[$downloadKey];
-            }
-
-            throw new UnexpectedValueException(sprintf(
-                'Expected a URL at property "%s" for package %s, '
-                . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
-                $downloadKey,
-                $packageName,
-                var_export($data[$downloadKey], true),
-                self::excerptResponseBody($response)
-            ));
-        }
-
-        // If not a key path, bail early.
-        if (mb_strpos($downloadKey, '.') === false) {
-            throw new UnexpectedValueException(sprintf(
-                'Expected property "%s" for package %s, '
-                . 'not found in:' . PHP_EOL . PHP_EOL . '%s',
-                $downloadKey,
-                $packageName,
-                self::excerptResponseBody($response)
-            ));
-        }
-
-        // Iterate segments of key path to traverse response.
-        foreach (explode('.', $downloadKey) as $segment) {
-            if (is_array($data) && array_key_exists($segment, $data)) {
-                $data = $data[$segment];
-            } else {
-                throw new UnexpectedValueException(sprintf(
-                    'Expected a property path "%s" for package %s, '
-                    . 'interrupted at "%s", found %s in:' . PHP_EOL . PHP_EOL . '%s',
-                    $downloadKey,
-                    $packageName,
-                    $segment,
-                    var_export($data, true),
-                    self::excerptResponseBody($response)
-                ));
-            }
-        }
-
-        if (is_string($data) && parse_url($data, PHP_URL_SCHEME)) {
-            return $data;
-        }
-
-        throw new UnexpectedValueException(sprintf(
-            'Expected a URL at property path "%s" for package %s, '
-            . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+        return self::findValueInResponseBody(
             $downloadKey,
-            $packageName,
-            var_export($data, true),
-            self::excerptResponseBody($response)
-        ));
+            [ $this, 'sanitizeDownloadUrl' ],
+            $data,
+            $response,
+            $package
+        );
     }
 
     /**
@@ -508,10 +461,98 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
+     * @param  ((mixed, string, ?string, Response, PackageInterface):mixed) $sanitizer The value sanitizer and validator.
+     * @throws UnexpectedValueException If $key is not found in $data.
+     * @return mixed
+     */
+    protected static function findValueInResponseBody(
+        string $key,
+        callable $sanitizer,
+        array $data,
+        Response $response,
+        PackageInterface $package
+    ) {
+        // Look for literal key in response.
+        if (array_key_exists($key, $data)) {
+            return $sanitizer($data[$key], $key, null, $response, $package);
+        }
+
+        // If not a key path, bail early.
+        if (mb_strpos($key, '.') === false) {
+            throw new UnexpectedValueException(sprintf(
+                'Expected property "%s" for package %s, '
+                . 'not found in:' . PHP_EOL . PHP_EOL . '%s',
+                $key,
+                $package->getName(),
+                self::excerptResponseBody($response)
+            ));
+        }
+
+        // Iterate segments of key path to traverse response.
+        foreach (explode('.', $key) as $segment) {
+            if (is_array($data) && array_key_exists($segment, $data)) {
+                $data = $data[$segment];
+            } else {
+                throw new UnexpectedValueException(sprintf(
+                    'Expected a property path "%s" for package %s, '
+                    . 'interrupted at "%s", found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    $key,
+                    $package->getName(),
+                    $segment,
+                    var_export($data, true),
+                    self::excerptResponseBody($response)
+                ));
+            }
+        }
+
+        return $sanitizer($data, $key, $segment, $response, $package);
+    }
+
+    /**
      * Test if this plugin runs within Composer 2.
      */
     protected static function isComposer1(): bool
     {
         return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
+    }
+
+    /**
+     * @param  mixed   $value The value to test.
+     * @param  ?string $keySegment The last segment of $keyPath.
+     * @throws UnexpectedValueException If $value is not a string URL.
+     * @return string A URL.
+     */
+    protected static function sanitizeDownloadUrl(
+        $value,
+        string $keyPath,
+        ?string $keySegment,
+        Response $response,
+        PackageInterface $package
+    ): string {
+        if (is_string($value) && parse_url($value, PHP_URL_SCHEME)) {
+            return $value;
+        }
+
+        if ($keySegment === null) {
+            $message = sprintf(
+                'Expected a URL at property "%s" for package %s, '
+                . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                $keyPath,
+                $package->getName(),
+                var_export($value, true),
+                self::excerptResponseBody($response)
+            );
+        } else {
+            $message = sprintf(
+                'Expected a URL at property path "%s" for package %s, '
+                . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                $keyPath,
+                $package->getName(),
+                var_export($value, true),
+                self::excerptResponseBody($response)
+            );
+        }
+
+        throw new UnexpectedValueException($message);
     }
 }
