@@ -4,8 +4,9 @@ on: [push, pull_request]
 
 jobs:
   test:
-    name: "CI"
+    name: "CI (${{ matrix.php-version }}, ${{ matrix.composer-version }}, ${{ matrix.phpdotenv-version }})"
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
 
     strategy:
       matrix:
@@ -15,18 +16,29 @@ jobs:
           - "7.3"
           - "7.4"
           - "8.0"
+          - "8.1"
+          - "8.2"
+          - "8.3"
         composer-version: ["v2"]
         phpdotenv-version: ["^4.1", "^5.2"]
+        experimental: [false]
         include:
           - php-version: "7.1"
             composer-version: "v1"
             phpdotenv-version: "^4.1"
+            experimental: false
           - php-version: "7.1"
             composer-version: "v1"
             phpdotenv-version: "^5.2"
+            experimental: false
           - php-version: "7.4"
             composer-version: "v1"
             phpdotenv-version: "^5.2"
+            experimental: false
+          - php-version: "8.4"
+            composer-version: "v2"
+            phpdotenv-version: "^5.2"
+            experimental: true
 
     steps:
       - name: "Checkout"
@@ -64,21 +76,12 @@ jobs:
           max_attempts: 5
           command: composer require "vlucas/phpdotenv:${{ matrix.phpdotenv-version }}" --no-update --no-interaction
 
-      - name: Install PHP 7 dependencies
+      - name: Install PHP dependencies
         uses: nick-invision/retry@v1
         with:
           timeout_minutes: 5
           max_attempts: 5
           command: composer update --prefer-dist --no-interaction --no-progress
-        if: "matrix.php-version < 8"
-
-      - name: Install PHP 8 dependencies
-        uses: nick-invision/retry@v1
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer update --prefer-dist --no-interaction --no-progress --ignore-platform-req=php
-        if: "matrix.php-version >= 8"
 
       - name: "Run PHP_CodeSniffer"
         run: "composer cs-check"

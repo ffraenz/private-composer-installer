@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace FFraenz\PrivateComposerInstaller\Test\Exception;
 
 use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
