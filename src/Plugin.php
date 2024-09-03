@@ -5,27 +5,58 @@ declare(strict_types=1);
 namespace FFraenz\PrivateComposerInstaller;
 
 use Composer\Composer;
+use Composer\Downloader\TransportException;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
+use Composer\Json\JsonFile;
+use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PreFileDownloadEvent;
+use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
+use Composer\Util\Http\Response;
+use Composer\Util\HttpDownloader;
+use ErrorException;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
+use InvalidArgumentException;
+use Throwable;
+use UnexpectedValueException;
 
+use function array_key_exists;
 use function array_merge;
+use function array_replace_recursive;
 use function array_search;
 use function array_unique;
 use function count;
+use function explode;
+use function implode;
+use function in_array;
+use function is_array;
+use function is_string;
+use function mb_strlen;
+use function mb_strpos;
+use function mb_substr;
+use function parse_url;
 use function preg_match_all;
 use function preg_replace;
+use function restore_error_handler;
+use function set_error_handler;
+use function sprintf;
 use function str_replace;
 use function strpos;
 use function strtolower;
+use function trim;
+use function unserialize;
 use function version_compare;
+
+use const PHP_EOL;
+use const PHP_URL_FRAGMENT;
+use const PHP_URL_SCHEME;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
@@ -61,18 +92,19 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Return the config value for the given key.
+     * Return the root config value for the given key.
      *
      * Returns the entire root config array, if key is set to null.
      *
      * @return mixed
      */
-    public function getConfig(?string $key)
+    public function getConfig(?string $key = null)
     {
         if ($this->config === null) {
             $this->config = [
                 'dotenv-path' => null,
                 'dotenv-name' => null,
+                'presets'     => [],
             ];
 
             $rootPackage  = $this->getComposer()->getPackage();
@@ -82,6 +114,22 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         return $key !== null ? ($this->config[$key] ?? null) : $this->config;
+    }
+
+    /**
+     * Return the preset config value for the given key.
+     *
+     * Returns the entire preset array, if key is set to null.
+     *
+     * @return mixed
+     */
+    public function getPreset(string $preset, ?string $key = null)
+    {
+        $presets = $this->getConfig('presets');
+
+        $options = $presets[$preset] ?? null;
+
+        return $key !== null ? ($options[$key] ?? null) : $options;
     }
 
     /**
@@ -190,24 +238,40 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public function handlePreDownloadEvent(PreFileDownloadEvent $event): void
     {
-        $filteredProcessedUrl = $filteredCacheKey = $processedUrl =
-            $event->getProcessedUrl();
+        $filteredCacheKey = $filteredProcessedUrl = $processedUrl = $event->getProcessedUrl();
+
+        if ($presetKey = parse_url($processedUrl, PHP_URL_FRAGMENT)) {
+            // Extract preset fragment before fullfilling the version placeholder
+            // to avoid a possible double fragment (`#<preset>#v<version>`).
+            // Do not strip the preset fragment to ensure its stored
+            // inside `composer.lock` to allow cache-busting.
+            $presetConfig = $this->getPreset($presetKey);
+        }
 
         if (! self::isComposer1() && $event->getType() === 'package') {
             // Fulfill version placeholder for packages
             // In Composer 1 this step is done upon package install & update
+            /** @var PackageInterface $package */
             $package = $event->getContext();
-            $version = $package->getPrettyVersion();
+            $extra   = $package->getExtra()['private-composer-installer'] ?? $presetConfig ?? [];
 
-            $filteredProcessedUrl = $filteredCacheKey =
-                $this->fulfillVersionPlaceholder(
-                    $filteredProcessedUrl,
-                    $version
-                );
+            $filteredCacheKey = $filteredProcessedUrl = $this->fulfillVersionPlaceholder(
+                $filteredProcessedUrl,
+                $package->getPrettyVersion()
+            );
         }
 
         // Fulfill env placeholders
         $filteredProcessedUrl = $this->fulfillPlaceholders($filteredProcessedUrl);
+
+        if (isset($package, $extra['indirection'])) {
+            $filteredProcessedUrl = $this->fetchIndirection(
+                $event->getHttpDownloader(),
+                $filteredProcessedUrl,
+                $extra['indirection'],
+                $package
+            );
+        }
 
         // Submit changes to Composer, if any
         if ($filteredProcessedUrl !== $processedUrl) {
@@ -227,6 +291,137 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 $event->setCustomCacheKey($filteredCacheKey);
             }
         }
+    }
+
+    /**
+     * Handle indirect package download URL.
+     *
+     * @param  string               $url     The package intermediary URL.
+     * @param  array<string, mixed> $options The indirection settings.
+     * @throws InvalidArgumentException If a setting of $options is invalid or missing.
+     * @throws TransportException       If the intermediary's request failed.
+     * @throws UnexpectedValueException If the intermediary's response is invalid
+     *     or if there is a package version mismatch.
+     * @return string Returns the package download URL on sucess or
+     *     the serialized response from the intermediary on failure.
+     */
+    public function fetchIndirection(
+        HttpDownloader $httpDownloader,
+        string $url,
+        array $options,
+        PackageInterface $package
+    ): string {
+        $format  = $options['parse']['format'] ?? false;
+        $formats = self::getSupportedResponseBodyParsers();
+        if (! in_array($format, $formats)) {
+            /**
+             * @todo [2024-08-06] Add support for RegExp of non-JSON body (such as XML).
+             */
+            throw new InvalidArgumentException(sprintf(
+                'Misconfigured package %s: Option "indirection.parse.format" '
+                . 'must be one of "%s", received %s',
+                $package->getName(),
+                implode('", "', $formats),
+                JsonFile::encode($format, 0)
+            ));
+        }
+
+        $downloadKey = $options['parse']['download_key'] ?? false;
+        if ($downloadKey === false) {
+            throw new InvalidArgumentException(sprintf(
+                'Misconfigured package %s: Option "indirection.parse.download_key" '
+                . 'must be a valid property or property path, received %s',
+                $package->getName(),
+                JsonFile::encode($downloadKey, 0)
+            ));
+        }
+
+        try {
+            $response = $httpDownloader->get($url, [
+                'http' => array_replace_recursive(['method' => 'GET'], $options['http'] ?? []),
+                'ssl'  => $options['ssl'] ?? [],
+            ]);
+        } catch (TransportException $e) {
+            if ($e->getCode() === 400) {
+                $message = sprintf(
+                    'Invalid request to indirect URL for package %s: %s',
+                    $package->getName(),
+                    $e->getMessage()
+                );
+            } elseif (in_array($e->getCode(), [401, 403])) {
+                $message = sprintf(
+                    'Invalid authentication to indirect URL for package %s: %s',
+                    $package->getName(),
+                    $e->getMessage()
+                );
+            } else {
+                $message = sprintf(
+                    'Could not query indirect URL for package %s: %s',
+                    $package->getName(),
+                    $e->getMessage()
+                );
+            }
+
+            throw new TransportException($message, $e->getCode(), $e);
+        }
+
+        try {
+            $data = self::parseResponseBody($response, $format);
+
+            if (! is_array($data)) {
+                throw new UnexpectedValueException(sprintf(
+                    'Found %s instead of associative array',
+                    JsonFile::encode($data, 0)
+                ));
+            }
+        } catch (Throwable $t) {
+            // Fix message from JsonFile::validateSyntax() in Composer 2.2.
+            $message = str_replace(
+                '"" does not contain valid JSON',
+                'The input does not contain valid JSON',
+                $t->getMessage()
+            );
+
+            throw new UnexpectedValueException(sprintf(
+                'Expected a data structure from indirect URL for package %s: %s',
+                $package->getName(),
+                $message
+            ), $t->getCode(), $t);
+        }
+
+        $downloadUrl = self::findValueInResponseBody(
+            $downloadKey,
+            [$this, 'sanitizeDownloadUrl'],
+            $data,
+            $response,
+            $package
+        );
+
+        $versionKey = $options['parse']['version_key'] ?? false;
+        // If no version key, bail early.
+        if ($versionKey === false) {
+            return $downloadUrl;
+        }
+
+        $downloadVersion = self::findValueInResponseBody(
+            $versionKey,
+            [$this, 'sanitizeDownloadVersion'],
+            $data,
+            $response,
+            $package
+        );
+
+        if (! Semver::satisfies((string) $downloadVersion, $package->getPrettyVersion())) {
+            throw new UnexpectedValueException(sprintf(
+                'Expected download version from indirect URL (%s) to match '
+                . 'installed version (%s) for package %s',
+                $downloadVersion,
+                $package->getPrettyVersion(),
+                $package->getName()
+            ));
+        }
+
+        return $downloadUrl;
     }
 
     /**
@@ -292,13 +487,84 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $placeholders = [];
         foreach ($matches[1] as $match) {
             // The 'version' placeholder is case-insensitive
-            $placeholders[] =
-                strtolower($match) !== 'version'
-                    ? $match
-                    : 'version';
+            $placeholders[] = strtolower($match) !== 'version'
+                ? $match
+                : 'version';
         }
 
         return array_unique($placeholders);
+    }
+
+    protected static function excerptResponseBody(Response $response): string
+    {
+        $body = $response->getBody();
+        if (! is_string($body)) {
+            return '<empty response>';
+        }
+
+        $body   = trim($body);
+        $length = mb_strlen($body);
+        if ($length === 0) {
+            return '<empty response>';
+        }
+
+        return mb_substr($body, 0, 100) . ($length > 100 ? '...' : '');
+    }
+
+    /**
+     * @param  ((mixed, string, ?string, Response, PackageInterface):mixed) $sanitizer
+     * @throws UnexpectedValueException If $key is not found in $data.
+     * @return mixed
+     */
+    protected static function findValueInResponseBody(
+        string $key,
+        callable $sanitizer,
+        array $data,
+        Response $response,
+        PackageInterface $package
+    ) {
+        // Look for literal key in response.
+        if (array_key_exists($key, $data)) {
+            return $sanitizer($data[$key], $key, null, $response, $package);
+        }
+
+        // If not a key path, bail early.
+        if (mb_strpos($key, '.') === false) {
+            throw new UnexpectedValueException(sprintf(
+                'Expected property "%s" for package %s, '
+                . 'not found in:' . PHP_EOL . PHP_EOL . '%s',
+                $key,
+                $package->getName(),
+                self::excerptResponseBody($response)
+            ));
+        }
+
+        // Iterate segments of key path to traverse response.
+        foreach (explode('.', $key) as $segment) {
+            if (is_array($data) && array_key_exists($segment, $data)) {
+                $data = $data[$segment];
+            } else {
+                throw new UnexpectedValueException(sprintf(
+                    'Expected a property path "%s" for package %s, '
+                    . 'interrupted at "%s", not found in:' . PHP_EOL . PHP_EOL . '%s',
+                    $key,
+                    $package->getName(),
+                    $segment,
+                    JsonFile::encode($data, 0),
+                    self::excerptResponseBody($response)
+                ));
+            }
+        }
+
+        return $sanitizer($data, $key, $segment, $response, $package);
+    }
+
+    /**
+     * @return string[]
+     */
+    protected static function getSupportedResponseBodyParsers(): array
+    {
+        return ['json', 'serialize'];
     }
 
     /**
@@ -307,5 +573,140 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     protected static function isComposer1(): bool
     {
         return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
+    }
+
+    /**
+     * @throws InvalidArgumentException If the format is unsupported.
+     * @return mixed
+     */
+    protected static function parseResponseBody(Response $response, string $format)
+    {
+        if ($format === 'json') {
+            return self::parseJsonResponseBody($response);
+        }
+
+        if ($format === 'serialize') {
+            return self::parseSerializedResponseBody($response);
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Unsupported response body parser format, '
+            . 'must be one of "%s", received "%s"',
+            implode('", "', self::getSupportedResponseBodyParsers()),
+            $format
+        ));
+    }
+
+    /**
+     * @return mixed
+     */
+    protected static function parseJsonResponseBody(Response $response)
+    {
+        // Intentionally using Response::getBody() instead of Response::decodeJson()
+        // to avoid including the Request URL in JSON error messages.
+        return JsonFile::parseJson($response->getBody());
+    }
+
+    /**
+     * @return mixed
+     */
+    protected static function parseSerializedResponseBody(Response $response)
+    {
+        try {
+            set_error_handler(static function ($severity, $message, $file, $line) {
+                throw new ErrorException($message, 0, $severity, $file, $line);
+            });
+            $data = unserialize($response->getBody(), ['allowed_classes' => false]);
+        } catch (Throwable $t) {
+            throw $t;
+        } finally {
+            restore_error_handler();
+        }
+
+        return JsonFile::parseJson(JsonFile::encode($data, 0));
+    }
+
+    /**
+     * @param  mixed   $value The value to test.
+     * @param  ?string $keySegment The last segment of $keyPath.
+     * @throws UnexpectedValueException If $value is not a string URL.
+     * @return string A URL.
+     */
+    protected static function sanitizeDownloadUrl(
+        $value,
+        string $keyPath,
+        ?string $keySegment,
+        Response $response,
+        PackageInterface $package
+    ): string {
+        if (is_string($value) && parse_url($value, PHP_URL_SCHEME)) {
+            return $value;
+        }
+
+        if ($keySegment === null) {
+            $message = sprintf(
+                'Expected a valid URL at property "%s" for package %s, '
+                . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                $keyPath,
+                $package->getName(),
+                JsonFile::encode($value, 0),
+                self::excerptResponseBody($response)
+            );
+        } else {
+            $message = sprintf(
+                'Expected a valid URL at property path "%s" for package %s, '
+                . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                $keyPath,
+                $package->getName(),
+                JsonFile::encode($value, 0),
+                self::excerptResponseBody($response)
+            );
+        }
+
+        throw new UnexpectedValueException($message);
+    }
+
+    /**
+     * @param  mixed   $value The value to test.
+     * @param  ?string $keySegment The last segment of $keyPath.
+     * @throws UnexpectedValueException If $value is not a version identifier.
+     * @return string A version identifier.
+     */
+    protected static function sanitizeDownloadVersion(
+        $value,
+        string $keyPath,
+        ?string $keySegment,
+        Response $response,
+        PackageInterface $package
+    ) {
+        try {
+            (new VersionParser())->normalize($value);
+        } catch (UnexpectedValueException $e) {
+            if ($keySegment === null) {
+                $message = sprintf(
+                    'Expected a valid version at property "%s" for package %s, '
+                    . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    $keyPath,
+                    $package->getName(),
+                    JsonFile::encode($value, 0),
+                    self::excerptResponseBody($response)
+                );
+            } else {
+                $message = sprintf(
+                    'Expected a valid version at property path "%s" for package %s, '
+                    . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    $keyPath,
+                    $package->getName(),
+                    JsonFile::encode($value, 0),
+                    self::excerptResponseBody($response)
+                );
+            }
+
+            throw new UnexpectedValueException($message, $e->getCode(), $e);
+        }
+
+        // Return non-normalized version to ensure displayed value
+        // matches occurrence from intermediary response body.
+        return (string) $value;
     }
 }

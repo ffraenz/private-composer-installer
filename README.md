@@ -91,28 +91,125 @@ composer require "advanced-custom-fields/advanced-custom-fields-pro:*"
 
 The configuration options listed below may be added to the root configuration in `composer.json` like so:
 
-```json
+```jsonc
 {
-  "name": "...",
-  "description": "...",
-  "require": {
-  },
+  "name": "…",
+  "description": "…",
+  "require": {/* … */},
   "extra": {
     "private-composer-installer": {
       "dotenv-path": ".",
-      "dotenv-name": ".env"
+      "dotenv-name": ".env",
+      "presets": {/* … */}
     }
   }
 }
 ```
 
-### dotenv-path
+### dotenv-path[^1]
 
 Dotenv file directory relative to the root package (where `composer.json` is located). By default dotenv files are expected to be in the root package folder or in any of the parent folders.
 
-### dotenv-name
+### dotenv-name[^1]
 
 Dotenv file name. Defaults to `.env`.
+
+### indirection
+
+> [!NOTE]
+> This feature is only supported with Composer 2 (latest).
+
+Indirection provides support for downloading a package from a temporary URL that is provided through the response from the dist URL (the intermediary). By default this plugin expects the dist URL to be the package's download URL.
+
+For example, certain WordPress plugins such as Gravity Forms, and managers such Easy Digital Downloads (EDD), usually serve their downloads from a temporary signed URL that is provided through an API endpoint as a JSON response.
+
+The indirection property can contain the following options:
+
+* `http` and `ssl` objects, as defined by [Composer's `CurlDownloader`](https://github.com/composer/composer/blob/2.2/src/Composer/Util/Http/CurlDownloader.php), to customize the request to the intermediary URL.
+  * `method`: Optional. The HTTP method for the request to the intermediary URL. Defaults to `GET`.
+* `parse` object which expects:
+  * `format`: Required. A string indicating the kind of response expected from the intermediary's HTTP response. Either `json` or `serialize`. The latter expects data serialized with PHP's `serialize()` function and will use `unserialize()` to deserialize the data.
+  * `download_key`: Required. A string for specifying the key or key path ("dot" notation) to extract the package download URL from. Wildcards are not supported.
+  * `version_key`: Optional. A string for specifying the key or key path ("dot" notation) to extract the download's version number from. Wildcards are not supported. If specified, it ensures the intermediary's download matches the package's required version constraint. This is necessary for Gravity Forms and plugins that use EDD.
+
+```jsonc
+"indirection": {
+  "http": {
+    "method": "POST"
+  },
+  "ssl": {
+    "passphrase": "{%PACKAGE_SSL_PW}"
+  },
+  "parse": {
+    "format": "json",
+    "download_key": "data.0.download_url",
+    "version_key": "data.0.version"
+  }
+}
+```
+
+The indirection can be defined from a [preset](#presets) or from the private package's inline extra data:
+
+```jsonc
+{
+  "repositories": [
+    {
+      "type": "package",
+      "package": {
+        "name": "package-name/package-name",
+        "version": "1.0.0",
+        "dist": {
+          "type": "zip",
+          "url": "https://example.com/api/download?name=foobar&key={%PACKAGE_KEY}&version={%VERSION}"
+        },
+        "require": {
+          "ffraenz/private-composer-installer": "^5.0"
+        },
+        "extra": {
+          "private-composer-installer": {
+            "indirection": {/* … */}
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### presets[^1]
+
+Presets are sets of configuration options to modify how a private package is processed.
+
+Each private package can only reference one preset. A preset can be applied to a package by appending its identifier as a URI fragment:
+
+```jsonc
+{
+  "repositories": [
+    {
+      "type": "package",
+      "package": {
+        "name": "package-name/package-name",
+        "version": "1.0.0",
+        "dist": {
+          "type": "zip",
+          "url": "https://example.com/api/download?name=foobar&key={%PACKAGE_KEY}&version={%VERSION}#preset-1"
+        },
+        "require": {
+          "ffraenz/private-composer-installer": "^5.0"
+        }
+      }
+    }
+  ],
+  "extra": {
+    "private-composer-installer": {
+      "presets": {
+        "preset-1": {/* … */},
+        "preset-2": {/* … */}
+      }
+    }
+  }
+}
+```
 
 ## Dependencies
 
@@ -142,3 +239,5 @@ docker-compose run --rm composer composer test
 ---
 
 This is a project by [Fränz Friederes](https://fraenz.frieder.es/) and [contributors](https://github.com/ffraenz/private-composer-installer/graphs/contributors)
+
+[^1]: Only the [root package](https://getcomposer.org/doc/04-schema.md#root-package) can define this setting.
