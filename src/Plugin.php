@@ -10,6 +10,7 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
+use Composer\Json\JsonFile;
 use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
@@ -18,10 +19,12 @@ use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Composer\Util\Http\Response;
 use Composer\Util\HttpDownloader;
+use ErrorException;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderFactory;
 use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
 use FFraenz\PrivateComposerInstaller\Environment\RepositoryInterface;
 use InvalidArgumentException;
+use Throwable;
 use UnexpectedValueException;
 
 use function array_key_exists;
@@ -31,6 +34,7 @@ use function array_search;
 use function array_unique;
 use function count;
 use function explode;
+use function implode;
 use function in_array;
 use function is_array;
 use function is_string;
@@ -40,12 +44,14 @@ use function mb_substr;
 use function parse_url;
 use function preg_match_all;
 use function preg_replace;
+use function restore_error_handler;
+use function set_error_handler;
 use function sprintf;
 use function str_replace;
 use function strpos;
 use function strtolower;
 use function trim;
-use function var_export;
+use function unserialize;
 use function version_compare;
 
 use const PHP_EOL;
@@ -305,17 +311,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         array $options,
         PackageInterface $package
     ): string {
-        $format = $options['parse']['format'] ?? false;
-        if ($format !== 'json') {
+        $format  = $options['parse']['format'] ?? false;
+        $formats = self::getSupportedResponseBodyParsers();
+        if (! in_array($format, $formats)) {
             /**
              * @todo [2024-08-06] Add support for RegExp of non-JSON body (such as XML).
-             * @todo [2024-08-06] Add support for PHP serialized body (such as Gravity Forms).
              */
             throw new InvalidArgumentException(sprintf(
                 'Misconfigured package %s: Option "indirection.parse.format" '
-                . 'must be one of "json", received %s',
+                . 'must be one of "%s", received %s',
                 $package->getName(),
-                var_export($format, true)
+                implode('", "', $formats),
+                JsonFile::encode($format, 0)
             ));
         }
 
@@ -325,7 +332,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 'Misconfigured package %s: Option "indirection.parse.download_key" '
                 . 'must be a valid property or property path, received %s',
                 $package->getName(),
-                var_export($downloadKey, true)
+                JsonFile::encode($downloadKey, 0)
             ));
         }
 
@@ -358,14 +365,29 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             throw new TransportException($message, $e->getCode(), $e);
         }
 
-        if (! $response->getBody()) {
-            throw new UnexpectedValueException(sprintf(
-                'Expected a data structure from indirect URL for package %s',
-                $package->getName()
-            ));
-        }
+        try {
+            $data = self::parseResponseBody($response, $format);
 
-        $data = $response->decodeJson();
+            if (! is_array($data)) {
+                throw new UnexpectedValueException(sprintf(
+                    'Found %s instead of associative array',
+                    JsonFile::encode($data, 0)
+                ));
+            }
+        } catch (Throwable $t) {
+            // Fix message from JsonFile::validateSyntax() in Composer 2.2.
+            $message = str_replace(
+                '"" does not contain valid JSON',
+                'The input does not contain valid JSON',
+                $t->getMessage()
+            );
+
+            throw new UnexpectedValueException(sprintf(
+                'Expected a data structure from indirect URL for package %s: %s',
+                $package->getName(),
+                $message
+            ), $t->getCode(), $t);
+        }
 
         $downloadUrl = self::findValueInResponseBody(
             $downloadKey,
@@ -524,11 +546,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             } else {
                 throw new UnexpectedValueException(sprintf(
                     'Expected a property path "%s" for package %s, '
-                    . 'interrupted at "%s", found %s in:' . PHP_EOL . PHP_EOL . '%s',
+                    . 'interrupted at "%s", not found in:' . PHP_EOL . PHP_EOL . '%s',
                     $key,
                     $package->getName(),
                     $segment,
-                    var_export($data, true),
+                    JsonFile::encode($data, 0),
                     self::excerptResponseBody($response)
                 ));
             }
@@ -538,11 +560,70 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
+     * @return string[]
+     */
+    protected static function getSupportedResponseBodyParsers(): array
+    {
+        return ['json', 'serialize'];
+    }
+
+    /**
      * Test if this plugin runs within Composer 2.
      */
     protected static function isComposer1(): bool
     {
         return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
+    }
+
+    /**
+     * @throws InvalidArgumentException If the format is unsupported.
+     * @return mixed
+     */
+    protected static function parseResponseBody(Response $response, string $format)
+    {
+        if ($format === 'json') {
+            return self::parseJsonResponseBody($response);
+        }
+
+        if ($format === 'serialize') {
+            return self::parseSerializedResponseBody($response);
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Unsupported response body parser format, '
+            . 'must be one of "%s", received "%s"',
+            implode('", "', self::getSupportedResponseBodyParsers()),
+            $format
+        ));
+    }
+
+    /**
+     * @return mixed
+     */
+    protected static function parseJsonResponseBody(Response $response)
+    {
+        // Intentionally using Response::getBody() instead of Response::decodeJson()
+        // to avoid including the Request URL in JSON error messages.
+        return JsonFile::parseJson($response->getBody());
+    }
+
+    /**
+     * @return mixed
+     */
+    protected static function parseSerializedResponseBody(Response $response)
+    {
+        try {
+            set_error_handler(static function ($severity, $message, $file, $line) {
+                throw new ErrorException($message, 0, $severity, $file, $line);
+            });
+            $data = unserialize($response->getBody(), ['allowed_classes' => false]);
+        } catch (Throwable $t) {
+            throw $t;
+        } finally {
+            restore_error_handler();
+        }
+
+        return JsonFile::parseJson(JsonFile::encode($data, 0));
     }
 
     /**
@@ -568,7 +649,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
                 $keyPath,
                 $package->getName(),
-                var_export($value, true),
+                JsonFile::encode($value, 0),
                 self::excerptResponseBody($response)
             );
         } else {
@@ -577,7 +658,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
                 $keyPath,
                 $package->getName(),
-                var_export($value, true),
+                JsonFile::encode($value, 0),
                 self::excerptResponseBody($response)
             );
         }
@@ -607,7 +688,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                     . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
                     $keyPath,
                     $package->getName(),
-                    var_export($value, true),
+                    JsonFile::encode($value, 0),
                     self::excerptResponseBody($response)
                 );
             } else {
@@ -616,7 +697,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                     . 'found %s in:' . PHP_EOL . PHP_EOL . '%s',
                     $keyPath,
                     $package->getName(),
-                    var_export($value, true),
+                    JsonFile::encode($value, 0),
                     self::excerptResponseBody($response)
                 );
             }

@@ -128,7 +128,7 @@ The indirection property can contain the following options:
 * `http` and `ssl` objects, as defined by [Composer's `CurlDownloader`](https://github.com/composer/composer/blob/2.2/src/Composer/Util/Http/CurlDownloader.php), to customize the request to the intermediary URL.
   * `method`: Optional. The HTTP method for the request to the intermediary URL. Defaults to `GET`.
 * `parse` object which expects:
-  * `format`: Required. A string indicating the kind of response expected from the intermediary's HTTP response. Only `json` is supported.
+  * `format`: Required. A string indicating the kind of response expected from the intermediary's HTTP response. Either `json` or `serialize`. The latter expects data serialized with PHP's `serialize()` function and will use `unserialize()` to deserialize the data.
   * `download_key`: Required. A string for specifying the key or key path ("dot" notation) to extract the package download URL from. Wildcards are not supported.
   * `version_key`: Optional. A string for specifying the key or key path ("dot" notation) to extract the download's version number from. Wildcards are not supported. If specified, it ensures the intermediary's download matches the package's required version constraint. This is necessary for Gravity Forms and plugins that use EDD.
 
