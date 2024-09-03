@@ -20,41 +20,30 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use UnexpectedValueException;
 
-use function bin2hex;
-use function random_bytes;
 use function version_compare;
 
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 use const PHP_EOL;
+use const PHP_VERSION;
 
 class PluginIndirectionTest extends TestCase
 {
-    public function testFetchesInlineIndirection()
-    {
+    /**
+     * @dataProvider provideDataForIndirectionDefinition
+     */
+    public function testIndirectionDefinition(
+        string $packageVersion,
+        string $processedUrl,
+        string $fulfilledUrl,
+        PackageInterface $package,
+        RootPackage $rootPackage
+    ): void {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
 
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'download',
-                        ],
-                    ],
-                ],
-            ]);
+        $expectedUrl = self::getMockDownloadUrl();
 
         $httpDownloader = new HttpDownloaderMock();
         $httpDownloader->expects([
@@ -72,24 +61,92 @@ class PluginIndirectionTest extends TestCase
         $this->expectIndirection(
             $expectedUrl,
             $processedUrl,
-            $version,
+            $packageVersion,
             $httpDownloader,
-            $package
+            $package,
+            $rootPackage
         );
     }
 
-    public function testFetchesInlineIndirectionWithKeyPath()
+    public function provideDataForIndirectionDefinition(): iterable
+    {
+        $_SERVER['KEY_FOO'] = $foo = 'foo';
+
+        $version = '1.2.3';
+
+        $processedUrl = self::getMockIntermediaryUrl('?v={%KEY_FOO}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$foo}", "#v{$version}");
+
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
+
+        $package
+            ->method('getExtra')
+            ->willReturn([
+                'private-composer-installer' => [
+                    'indirection' => [
+                        'parse' => [
+                            'format'       => 'json',
+                            'download_key' => 'download',
+                        ],
+                    ],
+                ],
+            ]);
+
+        $rootPackage = $this->createRootPackageMock();
+
+        yield 'from private package (inline)' => [
+            $version,
+            $processedUrl,
+            $fulfilledUrl,
+            $package,
+            $rootPackage,
+        ];
+
+        $processedUrl = self::getMockIntermediaryUrl('?v={%KEY_FOO}', '#preset-1');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$foo}", "#preset-1#v{$version}");
+
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
+
+        $rootPackage = $this->createRootPackageMock();
+
+        $rootPackage
+            ->method('getExtra')
+            ->willReturn([
+                'private-composer-installer' => [
+                    'presets' => [
+                        'preset-1' => [
+                            'indirection' => [
+                                'parse' => [
+                                    'format'       => 'json',
+                                    'download_key' => 'download',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+
+        yield 'from root package (preset)' => [
+            $version,
+            $processedUrl,
+            $fulfilledUrl,
+            $package,
+            $rootPackage,
+        ];
+    }
+
+    public function testIndirectionWithKeyPath(): void
     {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
 
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -126,68 +183,22 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testFetchesInlineIndirectionWithVersionAsNumber()
+    /**
+     * @dataProvider provideDataForIndirectionWithVersion
+     * @param mixed $indirectionVersion
+     */
+    public function testIndirectionWithVersion($indirectionVersion): void
     {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
 
         $version      = '1.3.0';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'download',
-                            'version_key'  => 'version',
-                        ],
-                    ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode([
-                    'download' => $expectedUrl,
-                    'version'  => 1.3,
-                ]),
-                'headers' => [
-                    'Content-Type: application/json',
-                ],
-            ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package
-        );
-    }
-
-    public function testFetchesInlineIndirectionWithVersionAsString()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -209,7 +220,7 @@ class PluginIndirectionTest extends TestCase
                 'url'     => $fulfilledUrl,
                 'body'    => JsonFile::encode([
                     'download' => $expectedUrl,
-                    'version'  => $version . '.0', // Adding an extra segment to test Semver support.
+                    'version'  => $indirectionVersion,
                 ]),
                 'headers' => [
                     'Content-Type: application/json',
@@ -226,91 +237,45 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testFetchesPresetIndirection()
+    public function provideDataForIndirectionWithVersion(): array
     {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-
-        $_SERVER['KEY_FOO'] = 'foo';
-
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%KEY_FOO}#preset-1';
-        $fulfilledUrl = 'https://example.com/api/download?v=foo#preset-1#v' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $rootPackage = $this->createRootPackageMock();
-
-        $rootPackage
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'presets' => [
-                        'preset-1' => [
-                            'indirection' => [
-                                'parse' => [
-                                    'format'       => 'json',
-                                    'download_key' => 'download',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode([
-                    'download' => $expectedUrl,
-                ]),
-                'headers' => [
-                    'Content-Type: application/json',
-                ],
+        return [
+            'version: number' => [
+                1.3,
             ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package,
-            $rootPackage
-        );
+            'version: string' => [
+                '1.3.0.0', // Adding an extra segment to test Semver support.
+            ],
+        ];
     }
 
-    public function testThrowsExceptionWhenIndirectionFormatIsMissing()
-    {
+    /**
+     * @dataProvider provideDataWhenIndirectionMisconfigured
+     * @param mixed $indirectionVersion
+     */
+    public function testThrowsExceptionWhenIndirectionMisconfigured(
+        string $exceptionMessage,
+        array $indirectionOptions
+    ): void {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
 
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage(
-            'Misconfigured package acme/example: Option "indirection.parse.format" '
-            . 'must be one of "json", received false'
-        );
-
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
             ->willReturn([
                 'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'download_key' => 'download',
-                        ],
-                    ],
+                    'indirection' => $indirectionOptions,
                 ],
             ]);
 
@@ -336,77 +301,52 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionKeyIsMissing()
+    public function provideDataWhenIndirectionMisconfigured(): array
     {
+        return [
+            'misconfigured: format'       => [
+                'Misconfigured package acme/example: Option "indirection.parse.format" '
+                . 'must be one of "json", "serialize", received false',
+                [
+                    'parse' => [
+                        'missing_format' => null,
+                        'download_key'   => 'download',
+                    ],
+                ],
+            ],
+            'misconfigured: download_key' => [
+                'Misconfigured package acme/example: Option "indirection.parse.download_key" '
+                . 'must be a valid property or property path, received false',
+                [
+                    'parse' => [
+                        'format'               => 'json',
+                        'missing_download_key' => null,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider provideDataWhenIndirectionKeyNotFoundInResponseBody
+     */
+    public function testThrowsExceptionWhenIndirectionKeyNotFoundInResponseBody(
+        string $exceptionMessage,
+        string $downloadKey
+    ): void {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage(
-            'Misconfigured package acme/example: Option "indirection.parse.download_key" '
-            . 'must be a valid property or property path, received false'
-        );
 
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format' => 'json',
-                        ],
-                    ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode([
-                    'download' => $expectedUrl,
-                ]),
-                'headers' => [
-                    'Content-Type: application/json',
-                ],
-            ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package
-        );
-    }
-
-    public function testThrowsExceptionWhenIndirectionKeyNotFoundInResponseBody()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
         $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected property "download" for package acme/example, not found in:'
-            . PHP_EOL . PHP_EOL . '{"foo":false}'
-        );
+        $this->expectExceptionMessage($exceptionMessage);
 
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -415,7 +355,7 @@ class PluginIndirectionTest extends TestCase
                     'indirection' => [
                         'parse' => [
                             'format'       => 'json',
-                            'download_key' => 'download',
+                            'download_key' => $downloadKey,
                         ],
                     ],
                 ],
@@ -444,62 +384,23 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionKeyPathNotFoundInResponseBody()
+    public function provideDataWhenIndirectionKeyNotFoundInResponseBody(): iterable
     {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-
-        $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected a property path "a.b.c.0" for package acme/example, interrupted at "c", found true in:'
-            . PHP_EOL . PHP_EOL . '{"a":{"b":true}}'
-        );
-
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'a.b.c.0',
-                        ],
-                    ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode(
-                    ['a' => ['b' => true]],
-                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ),
-                'headers' => [
-                    'Content-Type: application/json',
-                ],
+        return [
+            'single key' => [
+                'Expected property "download" for package acme/example, not found in:'
+                . PHP_EOL . PHP_EOL . '{"foo":false}',
+                'download',
             ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package
-        );
+            'key path'   => [
+                'Expected a property path "a.b.c.0" for package acme/example, interrupted at "a", not found in:'
+                . PHP_EOL . PHP_EOL . '{"foo":false}',
+                'a.b.c.0',
+            ],
+        ];
     }
 
-    public function testThrowsExceptionWhenIndirectionRequestIsBad()
+    public function testThrowsExceptionWhenIndirectionRequestIsBad(): void
     {
         if (self::isComposer1()) {
             $this->markTestSkipped();
@@ -508,11 +409,11 @@ class PluginIndirectionTest extends TestCase
         $this->expectException(TransportException::class);
 
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -544,7 +445,7 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionRequestIsUnauthorized()
+    public function testThrowsExceptionWhenIndirectionRequestIsUnauthorized(): void
     {
         if (self::isComposer1()) {
             $this->markTestSkipped();
@@ -553,11 +454,11 @@ class PluginIndirectionTest extends TestCase
         $this->expectException(TransportException::class);
 
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -589,7 +490,7 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionResponseNotFound()
+    public function testThrowsExceptionWhenIndirectionResponseNotFound(): void
     {
         if (self::isComposer1()) {
             $this->markTestSkipped();
@@ -598,11 +499,11 @@ class PluginIndirectionTest extends TestCase
         $this->expectException(TransportException::class);
 
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -634,46 +535,174 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionResponseBodyIsEmpty()
-    {
+    /**
+     * @dataProvider provideDataWhenIndirectionResponseBodyIsInvalid
+     */
+    public function testThrowsExceptionWhenIndirectionResponseBodyIsInvalid(
+        string $exceptionMessage,
+        array $indirectionOptions,
+        array $indirectionResponse
+    ): void {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
 
-        $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected a data structure from indirect URL for package acme/example'
-        );
-
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
             ->willReturn([
                 'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'a.b.c.0',
-                        ],
-                    ],
+                    'indirection' => $indirectionOptions,
                 ],
             ]);
 
         $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
+        $httpDownloader->expects(
+            [['url' => $fulfilledUrl] + $indirectionResponse],
+            true
+        );
+
+        $this->expectIndirection(
+            $expectedUrl,
+            $processedUrl,
+            $version,
+            $httpDownloader,
+            $package
+        );
+    }
+
+    public function provideDataWhenIndirectionResponseBodyIsInvalid(): iterable
+    {
+        yield 'json: empty' => [
+            'Expected a data structure from indirect URL for package acme/example: '
+            . 'The input does not contain valid JSON' . PHP_EOL . 'Parse error on line 1',
             [
-                'url'     => $fulfilledUrl,
+                'parse' => [
+                    'format'       => 'json',
+                    'download_key' => 'download',
+                ],
+            ],
+            [
                 'body'    => '',
                 'headers' => [
                     'Content-Type: application/json',
                 ],
             ],
+        ];
+
+        yield 'json: invalid' => [
+            'Expected a data structure from indirect URL for package acme/example: '
+            . 'Found "hello" instead of associative array',
+            [
+                'parse' => [
+                    'format'       => 'json',
+                    'download_key' => 'download',
+                ],
+            ],
+            [
+                'body'    => '"hello"',
+                'headers' => [
+                    'Content-Type: application/json',
+                ],
+            ],
+        ];
+
+        yield 'serialize: empty' => [
+            'Expected a data structure from indirect URL for package acme/example: '
+            . 'Found false instead of associative array',
+            [
+                'parse' => [
+                    'format'       => 'serialize',
+                    'download_key' => 'download',
+                ],
+            ],
+            [
+                'body'    => '',
+                'headers' => [
+                    'Content-Type: text/plain',
+                ],
+            ],
+        ];
+
+        $exceptionMessage = version_compare(PHP_VERSION, '8.1', '>=')
+            ? 'Expected a data structure from indirect URL for package acme/example: '
+                . 'unserialize(): Error at offset 5 of 6 bytes'
+            : 'Expected a data structure from indirect URL for package acme/example: '
+                . 'unserialize(): Unexpected end of serialized data';
+
+        yield 'serialize: malformed' => [
+            $exceptionMessage,
+            [
+                'parse' => [
+                    'format'       => 'serialize',
+                    'download_key' => 'download',
+                ],
+            ],
+            [
+                'body'    => 'a:1:{}',
+                'headers' => [
+                    'Content-Type: application/json',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider provideDataWhenIndirectionSanitizerDownloadKeyHasInvalidValue
+     */
+    public function testThrowsExceptionWhenIndirectionSanitizerDownloadKeyHasInvalidValue(
+        string $exceptionMessage,
+        string $indirectionDownloadKey,
+        array $indirectionResponseData
+    ): void {
+        if (self::isComposer1()) {
+            $this->markTestSkipped();
+        }
+
+        $version      = '1.2.3';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
+
+        $package
+            ->method('getExtra')
+            ->willReturn([
+                'private-composer-installer' => [
+                    'indirection' => [
+                        'parse' => [
+                            'format'       => 'json',
+                            'download_key' => $indirectionDownloadKey,
+                        ],
+                    ],
+                ],
+            ]);
+
+        $httpDownloader = new HttpDownloaderMock();
+        $httpDownloader->expects([
+            [
+                'url'     => $fulfilledUrl,
+                'body'    => JsonFile::encode(
+                    $indirectionResponseData,
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                ),
+                'headers' => [
+                    'Content-Type: application/json',
+                ],
+            ],
         ], true);
 
         $this->expectIndirection(
@@ -685,24 +714,45 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionSanitizerDownloadKeyHasInvalidValue()
+    public function provideDataWhenIndirectionSanitizerDownloadKeyHasInvalidValue(): iterable
     {
+        return [
+            'single key' => [
+                'Expected a valid URL at property "download" for package acme/example, found 42 in:'
+                . PHP_EOL . PHP_EOL . '{"download":42}',
+                'download',
+                ['download' => 42],
+            ],
+            'key path'   => [
+                'Expected a valid URL at property path "a.b.c.0" for package acme/example, found true in:'
+                . PHP_EOL . PHP_EOL . '{"a":{"b":{"c":[true]}}}',
+                'a.b.c.0',
+                ['a' => ['b' => ['c' => [true]]]],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider provideDataWhenIndirectionSanitizerVersionKeyHasInvalidValue
+     */
+    public function testThrowsExceptionWhenIndirectionSanitizerVersionKeyHasInvalidValue(
+        string $exceptionMessage,
+        string $indirectionVersionKey,
+        array $indirectionResponseData
+    ): void {
         if (self::isComposer1()) {
             $this->markTestSkipped();
         }
 
-        $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected a valid URL at property "download" for package acme/example, found 42 in:'
-            . PHP_EOL . PHP_EOL . '{"download":42}'
-        );
-
         $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -712,6 +762,7 @@ class PluginIndirectionTest extends TestCase
                         'parse' => [
                             'format'       => 'json',
                             'download_key' => 'download',
+                            'version_key'  => $indirectionVersionKey,
                         ],
                     ],
                 ],
@@ -722,7 +773,7 @@ class PluginIndirectionTest extends TestCase
             [
                 'url'     => $fulfilledUrl,
                 'body'    => JsonFile::encode(
-                    ['download' => 42],
+                    ['download' => $expectedUrl] + $indirectionResponseData,
                     JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
                 ),
                 'headers' => [
@@ -740,184 +791,34 @@ class PluginIndirectionTest extends TestCase
         );
     }
 
-    public function testThrowsExceptionWhenIndirectionSanitizerDownloadKeyPathHasInvalidValue()
+    public function provideDataWhenIndirectionSanitizerVersionKeyHasInvalidValue(): iterable
     {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
+        $expectedUrl = self::getMockDownloadUrl();
 
-        $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected a valid URL at property path "a.b.c.0" for package acme/example, found true in:'
-            . PHP_EOL . PHP_EOL . '{"a":{"b":{"c":[true]}}}'
-        );
-
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'a.b.c.0',
-                        ],
-                    ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode(
-                    ['a' => ['b' => ['c' => [true]]]],
-                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ),
-                'headers' => [
-                    'Content-Type: application/json',
+        return [
+            'single key' => [
+                'Expected a valid version at property "version" for package acme/example, '
+                . 'found "1.2.3+foo bar" in:' . PHP_EOL . PHP_EOL
+                . '{"download":"' . $expectedUrl . '","version":"1.2.3+foo bar"}',
+                'version',
+                [
+                    'version' => '1.2.3+foo bar',
                 ],
             ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package
-        );
-    }
-
-    public function testThrowsExceptionWhenIndirectionSanitizerVersionKeyHasInvalidValue()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-
-        $version      = '1.2.3';
-        $foundVersion = $version . '+foo bar';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected a valid version at property "version" for package acme/example, '
-            . 'found \'' . $foundVersion . '\' in:' . PHP_EOL . PHP_EOL
-            . '{"download":"' . $expectedUrl . '","version":"' . $foundVersion . '"}'
-        );
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'download',
-                            'version_key'  => 'version',
-                        ],
+            'key path'   => [
+                'Expected a valid version at property path "a.v" for package acme/example, found false in:'
+                . PHP_EOL . PHP_EOL . '{"download":"' . $expectedUrl . '","a":{"v":false}}',
+                'a.v',
+                [
+                    'a' => [
+                        'v' => false,
                     ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode(
-                    [
-                        'download' => $expectedUrl,
-                        'version'  => $foundVersion,
-                    ],
-                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ),
-                'headers' => [
-                    'Content-Type: application/json',
                 ],
             ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package
-        );
+        ];
     }
 
-    public function testThrowsExceptionWhenIndirectionSanitizerVersionKeyPathHasInvalidValue()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-
-        $version      = '1.2.3';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
-
-        $this->expectException(UnexpectedValueException::class);
-        $this->expectExceptionMessage(
-            'Expected a valid version at property path "a.v" for package acme/example, found false in:'
-            . PHP_EOL . PHP_EOL . '{"a":{"d":"' . $expectedUrl . '","v":false}}'
-        );
-
-        $package = $this->createPackageMock('acme/example', $version);
-
-        $package
-            ->method('getExtra')
-            ->willReturn([
-                'private-composer-installer' => [
-                    'indirection' => [
-                        'parse' => [
-                            'format'       => 'json',
-                            'download_key' => 'a.d',
-                            'version_key'  => 'a.v',
-                        ],
-                    ],
-                ],
-            ]);
-
-        $httpDownloader = new HttpDownloaderMock();
-        $httpDownloader->expects([
-            [
-                'url'     => $fulfilledUrl,
-                'body'    => JsonFile::encode(
-                    [
-                        'a' => [
-                            'd' => $expectedUrl,
-                            'v' => false,
-                        ],
-                    ],
-                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ),
-                'headers' => [
-                    'Content-Type: application/json',
-                ],
-            ],
-        ], true);
-
-        $this->expectIndirection(
-            $expectedUrl,
-            $processedUrl,
-            $version,
-            $httpDownloader,
-            $package
-        );
-    }
-
-    public function testThrowsExceptionWhenIndirectionVersionIsUnsatisfied()
+    public function testThrowsExceptionWhenIndirectionVersionIsUnsatisfied(): void
     {
         if (self::isComposer1()) {
             $this->markTestSkipped();
@@ -925,9 +826,9 @@ class PluginIndirectionTest extends TestCase
 
         $version      = '1.2.3';
         $foundVersion = '1.3.0';
-        $processedUrl = 'https://example.com/api/download?v={%VERSION}';
-        $fulfilledUrl = 'https://example.com/api/download?v=' . $version;
-        $expectedUrl  = 'https://example.com/r/' . bin2hex(random_bytes(5)) . '/d';
+        $processedUrl = self::getMockIntermediaryUrl('?v={%VERSION}');
+        $fulfilledUrl = self::getMockIntermediaryUrl("?v={$version}");
+        $expectedUrl  = self::getMockDownloadUrl();
 
         $this->expectException(UnexpectedValueException::class);
         $this->expectExceptionMessage(
@@ -935,7 +836,7 @@ class PluginIndirectionTest extends TestCase
             . 'to match installed version (' . $version . ') for package acme/example'
         );
 
-        $package = $this->createPackageMock('acme/example', $version);
+        $package = $this->createPackageMock(self::getMockPackageName(), $version);
 
         $package
             ->method('getExtra')
@@ -1151,6 +1052,21 @@ class PluginIndirectionTest extends TestCase
             $this->createComposerMock($rootPackage)
         );
         $plugin->handlePreDownloadEvent($event);
+    }
+
+    protected static function getMockDownloadUrl(): string
+    {
+        return 'https://example.com/r/xyzzy/d';
+    }
+
+    protected static function getMockIntermediaryUrl(?string $query, ?string $fragment = null): string
+    {
+        return 'https://example.com/api/download' . $query . $fragment;
+    }
+
+    protected static function getMockPackageName(): string
+    {
+        return 'acme/example';
     }
 
     protected static function isComposer1(): bool
